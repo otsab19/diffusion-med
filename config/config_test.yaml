@@ -5,13 +5,13 @@ clip_denoised: true
 data_dir: ''
 diffusion_steps: 1000
 dropout: 0.0
-hr_data_dir: /content/Processed_IXI/IXI_testing_hr_t2_scale_by_4_imgs.npy
-lr_data_dir: /content/Processed_IXI/IXI_testing_lr_t2_scale_by_5_imgs.npy
-other_data_dir: /content/Processed_IXI/IXI_testing_hr_t1_scale_by_4_imgs.npy
+hr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_testing_hr_t2_scale_by_4_imgs.npy
+lr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_testing_lr_t2_scale_by_5_imgs.npy
+other_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_testing_hr_t1_scale_by_4_imgs.npy
 image_size: 224
 in_channel: 1
 learn_sigma: true
-model_path: /content/Pretrained_DisC_Diff/DisC_Diff_X4_IXI.pt
+model_path: /content/drive/MyDrive/Pretrained_DisC_Diff/DisC_Diff_X4_IXI.pt
 noise_schedule: linear
 num_channels: 96
 num_head_channels: 48
