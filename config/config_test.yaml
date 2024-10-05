@@ -5,9 +5,9 @@ clip_denoised: true
 data_dir: ''
 diffusion_steps: 1000
 dropout: 0.0
-hr_data_dir: new_dataset/IXI_testing_hr_t2_scale_by_4_imgs.npy
-lr_data_dir: new_dataset/IXI_testing_lr_t2_scale_by_4_imgs.npy
-other_data_dir: new_dataset/IXI_testing_hr_t1_scale_by_4_imgs.npy
+hr_data_dir: /content/Processed_IXI/IXI_testing_hr_t2_scale_by_4_imgs.npy
+lr_data_dir: /content/Processed_IXI/IXI_testing_lr_t2_scale_by_5_imgs.npy
+other_data_dir: /content/Processed_IXI/IXI_testing_hr_t1_scale_by_4_imgs.npy
 image_size: 224
 in_channel: 1
 learn_sigma: true
