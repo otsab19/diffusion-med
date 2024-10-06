@@ -193,7 +193,11 @@ class TrainLoop:
 
     def _extract_batch(self, mean, sd):
         X = get_truncated_normal(mean=mean, sd=sd, low=self.lowest, upp=self.highest)
-        stats = Counter(np.round(X.rvs(self.batch_size)))
+        generated_values = X.rvs(self.batch_size)
+        # Map generated values to nearest available key in data_dic#t
+        available_keys = np.array(list(self.data_dict.keys()))
+        stats = Counter(available_keys[np.abs(available_keys - generated_values[:, None]).argmin(axis=1)])
+        # stats = Counter(np.round(X.rvs(self.batch_size)))
 
         batch_idx_list = []
         print("Keys in self.data_dict:", self.data_dict.keys())
