@@ -196,6 +196,9 @@ class TrainLoop:
         stats = Counter(np.round(X.rvs(self.batch_size)))
 
         batch_idx_list = []
+        print("Keys in self.data_dict:", self.data_dict.keys())
+        print("Keys in stats:", stats.keys())
+
         for j in stats.keys():
             batch_idx = np.random.choice(self.data_dict[j], size=stats[j], replace=False)
             for index in batch_idx:
