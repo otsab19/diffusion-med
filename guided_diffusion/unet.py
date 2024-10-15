@@ -733,20 +733,35 @@ class SuperResModel(UNetModel):
     """
 
     def attend(self, x, prev_output):
-        # Simple example using scaled dot-product attention
-        query = x
-        key = prev_output
-        value = prev_output
-        # Compute attention scores
-        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
-        attention_weights = torch.nn.functional.softmax(scores, dim=-1)
-        # Compute the attended output
-        attended = torch.matmul(attention_weights, value)
-        # Combine with the original input
+        batch_size, channels, height, width = x.size()
+        seq_length = height * width
+        embedding_dim = channels
+
+        # Reshape x and prev_output to [batch_size, seq_length, embedding_dim]
+        x_reshaped = x.view(batch_size, embedding_dim, seq_length).transpose(1, 2)
+        prev_output_reshaped = prev_output.view(batch_size, embedding_dim, seq_length).transpose(1, 2)
+
+        # Compute query, key, value
+        query = self.query_proj(x_reshaped)
+        key = self.key_proj(prev_output_reshaped)
+        value = self.value_proj(prev_output_reshaped)
+
+        # Scaled dot-product attention
+        scores = torch.bmm(query, key.transpose(1, 2)) / math.sqrt(embedding_dim)
+        attention_weights = torch.softmax(scores, dim=-1)
+        attended = torch.bmm(attention_weights, value)
+
+        # Reshape back to original dimensions
+        attended = attended.transpose(1, 2).view(batch_size, embedding_dim, height, width)
         return x + attended
+
 
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
+        embedding_dim = self.model_channels  # Or another appropriate value
+        self.query_proj = nn.Linear(embedding_dim, embedding_dim)
+        self.key_proj = nn.Linear(embedding_dim, embedding_dim)
+        self.value_proj = nn.Linear(embedding_dim, embedding_dim)
         print(image_size)
     def forward(self, x, timesteps, prev_output = None, **kwargs):
         # _, _, new_height, new_width = x.shape

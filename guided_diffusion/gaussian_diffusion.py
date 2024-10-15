@@ -422,6 +422,7 @@ class GaussianDiffusion:
                  - 'sample': a random sample from the model.
                  - 'pred_xstart': a prediction of x_0.
         """
+        prev_output = model_kwargs.get('prev_output', None)
         out = self.p_mean_variance(
             model,
             x,
@@ -572,6 +573,8 @@ class GaussianDiffusion:
         else:
             img = th.randn(*shape, device=device)
         indices = list(range(self.num_timesteps))[::-1]
+        prev_output = None
+        model_kwargs['prev_output'] = prev_output
 
         if progress:
             # Lazy import so that we don't depend on tqdm.
@@ -592,7 +595,8 @@ class GaussianDiffusion:
                     model_kwargs=model_kwargs,
                 )
                 yield out
-                prev_output = out['sample']  # Update prev_output
+                prev_output = out['sample']
+                model_kwargs['prev_output'] = prev_output
                 img = out["sample"]
 
     def ddim_sample(
@@ -815,7 +819,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise)
-
+        prev_output = model_kwargs.get('prev_output', torch.zeros_like(x_start))
         terms = {}
 
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
@@ -831,8 +835,8 @@ class GaussianDiffusion:
                 terms["loss"] *= self.num_timesteps
 
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
-            prev_output = torch.zeros_like(x_start)
-            com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, model_output = model(x_t, self._scale_timesteps(t),
+
+            com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, model_output = model(x_t, self._scale_timesteps(t), prev_output=prev_output,
                                                                                     **model_kwargs)
             if self.model_var_type in [
                 ModelVarType.LEARNED,
@@ -841,6 +845,9 @@ class GaussianDiffusion:
                 B, C = x_t.shape[:2]
                 assert model_output.shape == (B, C * 2, *x_t.shape[2:])
                 model_output, model_var_values = th.split(model_output, C, dim=1)
+
+                # Update prev_output for the next iteration
+                model_kwargs['prev_output'] = model_output.detach()
                 # Learn the variance using the variational bound, but don't let
                 # it affect our mean prediction.
                 frozen_out = th.cat([model_output.detach(), model_var_values], dim=1)

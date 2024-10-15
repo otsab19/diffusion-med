@@ -4,6 +4,7 @@ import os
 
 import blobfile as bf
 import numpy as np
+import torch
 import torch as th
 import torch.distributed as dist
 from scipy.stats import truncnorm
@@ -242,6 +243,8 @@ class TrainLoop:
             self.save()
 
     def run_step(self, batch, cond, mode):
+        # Initialize prev_output
+        cond['prev_output'] = torch.zeros_like(batch).to(dist_util.dev())
         self.forward_backward(batch, cond, mode)
         took_step = self.mp_trainer.optimize(self.opt)
         if took_step:
