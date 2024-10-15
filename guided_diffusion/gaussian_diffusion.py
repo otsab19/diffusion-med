@@ -9,6 +9,7 @@ import math
 
 import numpy as np
 import shap
+import torch
 import torch as th
 
 from .nn import mean_flat
@@ -562,6 +563,7 @@ class GaussianDiffusion:
         Returns a generator over dicts, where each dict is the return value of
         p_sample().
         """
+        prev_output = None  # Initialize prev_output
         if device is None:
             device = next(model.parameters()).device
         assert isinstance(shape, (tuple, list))
@@ -590,6 +592,7 @@ class GaussianDiffusion:
                     model_kwargs=model_kwargs,
                 )
                 yield out
+                prev_output = out['sample']  # Update prev_output
                 img = out["sample"]
 
     def ddim_sample(
@@ -828,6 +831,7 @@ class GaussianDiffusion:
                 terms["loss"] *= self.num_timesteps
 
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
+            prev_output = torch.zeros_like(x_start)
             com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, model_output = model(x_t, self._scale_timesteps(t),
                                                                                     **model_kwargs)
             if self.model_var_type in [

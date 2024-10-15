@@ -3,6 +3,7 @@ from abc import abstractmethod
 import math
 
 import numpy as np
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
@@ -731,12 +732,28 @@ class SuperResModel(UNetModel):
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
+    def attend(self, x, prev_output):
+        # Simple example using scaled dot-product attention
+        query = x
+        key = prev_output
+        value = prev_output
+        # Compute attention scores
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
+        attention_weights = torch.nn.functional.softmax(scores, dim=-1)
+        # Compute the attended output
+        attended = torch.matmul(attention_weights, value)
+        # Combine with the original input
+        return x + attended
+
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         print(image_size)
-    def forward(self, x, timesteps,**kwargs):
+    def forward(self, x, timesteps, prev_output = None, **kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
+        if prev_output is not None:
+            # Apply attention between x and prev_output
+            x = self.attend(x, prev_output)
         return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])
 
 
