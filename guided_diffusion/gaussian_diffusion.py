@@ -261,7 +261,11 @@ class GaussianDiffusion:
         B, C = x.shape[:2]
         assert t.shape == (B,)
 
-        model_output = model(x, self._scale_timesteps(t),  **model_kwargs)
+        prev_output = model_kwargs.pop('prev_output', None)
+        model_output = model(x, self._scale_timesteps(t),prev_output=prev_output,  **model_kwargs)
+
+        # Update prev_output for the next iteration
+        model_kwargs['prev_output'] = model_output.detach()
 
         if type(model_output) is tuple:
             (_, _, _, _, _, _, model_output) = model_output
@@ -422,7 +426,7 @@ class GaussianDiffusion:
                  - 'sample': a random sample from the model.
                  - 'pred_xstart': a prediction of x_0.
         """
-        prev_output = model_kwargs.get('prev_output', None)
+        prev_output = model_kwargs.pop('prev_output', None)
         out = self.p_mean_variance(
             model,
             x,
@@ -439,6 +443,7 @@ class GaussianDiffusion:
             out["mean"] = self.condition_mean(
                 cond_fn, out, x, t, model_kwargs=model_kwargs
             )
+        model_kwargs['prev_output'] = out['sample'].detach()
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
 
@@ -595,7 +600,7 @@ class GaussianDiffusion:
                     model_kwargs=model_kwargs,
                 )
                 yield out
-                prev_output = out['sample']
+                prev_output = out['sample'].detach()
                 model_kwargs['prev_output'] = prev_output
                 img = out["sample"]
 
@@ -819,7 +824,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise)
-        prev_output = model_kwargs.get('prev_output', torch.zeros_like(x_start))
+        prev_output = model_kwargs.pop('prev_output', torch.zeros_like(x_start))
         terms = {}
 
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
