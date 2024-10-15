@@ -732,42 +732,52 @@ class SuperResModel(UNetModel):
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
+
     def attend(self, x, prev_output):
         batch_size, channels, height, width = x.size()
-        seq_length = height * width
-        embedding_dim = channels
+        assert channels == self.embedding_dim, f"Expected x to have {self.embedding_dim} channels, got {channels}"
 
-        # Reshape x and prev_output to [batch_size, seq_length, embedding_dim]
-        x_reshaped = x.view(batch_size, embedding_dim, seq_length).transpose(1, 2)
-        prev_output_reshaped = prev_output.view(batch_size, embedding_dim, seq_length).transpose(1, 2)
+        # Flatten spatial dimensions
+        x_reshaped = x.view(batch_size, channels, -1)  # Shape: (batch_size, channels, seq_length)
+        prev_output_reshaped = prev_output.view(batch_size, channels, -1)  # Same shape
 
-        # Compute query, key, value
-        query = self.query_proj(x_reshaped)
-        key = self.key_proj(prev_output_reshaped)
-        value = self.value_proj(prev_output_reshaped)
+        # Permute to (seq_length, batch_size, embedding_dim) as expected by nn.MultiheadAttention
+        x_reshaped = x_reshaped.permute(2, 0, 1)  # Shape: (seq_length, batch_size, embedding_dim)
+        prev_output_reshaped = prev_output_reshaped.permute(2, 0, 1)  # Same shape
 
-        # Scaled dot-product attention
-        scores = torch.bmm(query, key.transpose(1, 2)) / math.sqrt(embedding_dim)
-        attention_weights = torch.softmax(scores, dim=-1)
-        attended = torch.bmm(attention_weights, value)
+        # Apply MultiheadAttention
+        attended, _ = self.attention(query=x_reshaped, key=prev_output_reshaped, value=prev_output_reshaped)
 
-        # Reshape back to original dimensions
-        attended = attended.transpose(1, 2).view(batch_size, embedding_dim, height, width)
-        return x + attended
+        # Permute back to (batch_size, embedding_dim, seq_length)
+        attended = attended.permute(1, 2, 0)
 
+        # Reshape back to (batch_size, embedding_dim, height, width)
+        attended = attended.view(batch_size, self.embedding_dim, height, width)
+
+        # Combine with input x (you can adjust how you combine them)
+        x = x + attended
+
+        return x
 
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
-        embedding_dim = self.model_channels  # Or another appropriate value
-        self.query_proj = nn.Linear(embedding_dim, embedding_dim)
-        self.key_proj = nn.Linear(embedding_dim, embedding_dim)
-        self.value_proj = nn.Linear(embedding_dim, embedding_dim)
-        print(image_size)
+        embedding_dim = self.model_channels  # Typically 96
+        num_heads = 4  # You can adjust this as needed
+        self.proj = nn.Conv2d(in_channels, self.embedding_dim, kernel_size=1)
+        self.embedding_dim = embedding_dim
+        self.num_heads = num_heads
+
+        # Initialize the MultiheadAttention layer
+        self.attention = nn.MultiheadAttention(embed_dim=embedding_dim, num_heads=num_heads)
     def forward(self, x, timesteps, prev_output = None, **kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
         if prev_output is not None:
-            # Apply attention between x and prev_output
+            # Project x and prev_output if necessary
+            if x.shape[1] != self.embedding_dim:
+                x = self.proj(x)
+            if prev_output.shape[1] != self.embedding_dim:
+                prev_output = self.proj(prev_output)
             x = self.attend(x, prev_output)
         return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])
 
