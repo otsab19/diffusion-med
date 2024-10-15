@@ -762,9 +762,9 @@ class SuperResModel(UNetModel):
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         embedding_dim = self.model_channels  # Typically 96
+        self.embedding_dim = embedding_dim
         num_heads = 4  # You can adjust this as needed
         self.proj = nn.Conv2d(in_channels, self.embedding_dim, kernel_size=1)
-        self.embedding_dim = embedding_dim
         self.num_heads = num_heads
 
         # Initialize the MultiheadAttention layer
