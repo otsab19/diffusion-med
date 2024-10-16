@@ -734,16 +734,27 @@ class SuperResModel(UNetModel):
 
 
     def attend(self, x, prev_output):
+
         batch_size, channels, height, width = x.size()
         assert channels == self.embedding_dim, f"Expected x to have {self.embedding_dim} channels, got {channels}"
 
+        # Assume x and prev_output are of shape (batch_size, channels, height, width)
+        # Divide height and width by patch size
+        patch_size = 16
+        x_patches = x.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
+        prev_patches = prev_output.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
+        # Reshape to (batch_size, channels, num_patches)
+        x_reshaped = x_patches.contiguous().view(batch_size, channels, -1)
+        prev_output_reshaped = prev_patches.contiguous().view(batch_size, channels, -1)
+        # Permute and apply attention as before
         # Flatten spatial dimensions
-        x_reshaped = x.view(batch_size, channels, -1)  # Shape: (batch_size, channels, seq_length)
-        prev_output_reshaped = prev_output.view(batch_size, channels, -1)  # Same shape
+
+        # x_reshaped = x.view(batch_size, channels, -1)  # Shape: (batch_size, channels, seq_length)
+        # prev_output_reshaped = prev_output.view(batch_size, channels, -1)  # Same shape
 
         # Permute to (seq_length, batch_size, embedding_dim) as expected by nn.MultiheadAttention
-        x_reshaped = x_reshaped.permute(2, 0, 1)  # Shape: (seq_length, batch_size, embedding_dim)
-        prev_output_reshaped = prev_output_reshaped.permute(2, 0, 1)  # Same shape
+        # x_reshaped = x_reshaped.permute(2, 0, 1)  # Shape: (seq_length, batch_size, embedding_dim)
+        # prev_output_reshaped = prev_output_reshaped.permute(2, 0, 1)  # Same shape
 
         # Apply MultiheadAttention
         attended, _ = self.attention(query=x_reshaped, key=prev_output_reshaped, value=prev_output_reshaped)
