@@ -745,6 +745,7 @@ class SliceAttention(nn.Module):
     def __init__(self, channels, num_slices=3):
         super(SliceAttention, self).__init__()
         self.channels = channels
+        print(f"Channels in SliceAttention: {channels}")
         self.num_slices = num_slices
         self.qkv_proj = nn.Conv2d(channels, channels * 3, kernel_size=1)
         self.attention = nn.MultiheadAttention(channels, num_heads=4)
