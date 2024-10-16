@@ -222,10 +222,19 @@ class TrainLoop:
             for index in batch_idx:
                 batch_idx_list.append(index)
 
-        hr_data, lr_data, other_data = self.data[batch_idx_list]
+        # Access data with the batch of indices
+        batch_data = self.data[batch_idx_list]
+
+        # Unpack the data dictionary (make sure it matches the keys returned by your dataset)
+        hr_data = batch_data['hr_slice']
+        lr_data = batch_data['lr_slice']
+        other_data = batch_data['other_slice']
         batch = hr_data
         cond = {'low_res': lr_data,
-                'other': other_data}
+                'other': other_data,
+                'hr_adj_slices': batch_data['hr_adj_slices'],
+                'lr_adj_slices': batch_data['lr_adj_slices'],
+                'other_adj_slices': batch_data['other_adj_slices']}
         return batch, cond
 
     def run_loop(self):
