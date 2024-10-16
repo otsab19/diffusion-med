@@ -67,7 +67,10 @@ class BraTSMRI(Dataset):
         """
         Fetch the current slice and adjacent slices for a given subject and slice index.
         """
-
+        # Fetch the current slice for HR, LR, and Other
+        hr_slice = self.hr_data[subject_idx, :, slice_idx]
+        lr_slice = self.lr_data[subject_idx, :, slice_idx]
+        other_slice = self.other_data[subject_idx, :, slice_idx]
         # Get adjacent slices range, ensure boundaries
         start_idx = max(0, slice_idx - self.num_adjacent_slices // 2)
         end_idx = min(self.num_slices, slice_idx + self.num_adjacent_slices // 2 + 1)
@@ -82,7 +85,8 @@ class BraTSMRI(Dataset):
         lr_adj_slices = torch.stack([lr_adj_slices], dim=0)
         other_adj_slices = torch.stack([other_adj_slices], dim=0)
 
-        return hr_adj_slices, lr_adj_slices, other_adj_slices
+        return hr_slice, lr_slice, other_slice, hr_adj_slices, lr_adj_slices, other_adj_slices
+
     def __getitem__(self, index):
         if isinstance(index, (list, np.ndarray)):
             # If batch index is a list/array, process each index in the batch
