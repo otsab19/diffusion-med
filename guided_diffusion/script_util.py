@@ -97,7 +97,7 @@ def sr_create_model(
     channel_mult = (1, 1, 2, 2, 3, 3)
 
     attention_ds = [8, 16, 32]
-
+    print(f"in channel in super res model::{in_channel}")
     return SuperResModel(
         image_size=image_size,
         in_channels=in_channel,
