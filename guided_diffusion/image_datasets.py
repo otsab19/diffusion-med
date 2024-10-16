@@ -64,4 +64,5 @@ class BraTSMRI(Dataset):
 
     def __getitem__(self, index):
         print("index:::", index)
+        print(sdsa)
         return self.hr_data[index], self.lr_data[index], self.other_data[index]
