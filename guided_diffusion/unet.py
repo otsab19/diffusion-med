@@ -737,13 +737,12 @@ class UNetModel(nn.Module):
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
 
-
 class SliceAttention(nn.Module):
     """
     Custom attention module that computes attention over adjacent slices.
     """
 
-    def __init__(self, channels, num_slices=4):
+    def __init__(self, channels, num_slices=5):
         super(SliceAttention, self).__init__()
         self.channels = channels
         print(f"Channels in SliceAttention: {channels}")
@@ -754,32 +753,32 @@ class SliceAttention(nn.Module):
         self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
 
     def forward(self, h):
-        # h shape: [N, C, num_slices, H, W]
+        # h shape: [N, C, S, H, W] where S is the number of adjacent slices
         N, C, S, H, W = h.shape
 
-        # Combine the slice dimension (S) and the batch dimension (N * S)
-        h = h.permute(0, 2, 1, 3, 4)  # [N, S, C, H, W] -> [N, C, S, H, W]
-        h = h.view(N * S, C, H, W)  # [N * S, C, H, W]
+        # Reshape the input to treat the slices as the batch dimension
+        h = h.view(N * S, C, H, W)  # Merge slices into batch [N * S, C, H, W]
 
-        # Apply the projection layer (qkv_proj)
+        # Project to Q, K, V
         qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
-        qkv = qkv.view(N * S, 3, C, H * W)  # [N * S, 3, C, H * W]
-        qkv = qkv.permute(1, 0, 3, 2)  # [3, N * S, H * W, C]
+        qkv = qkv.view(N * S, 3, C, H * W)  # Reshape to [N * S, 3, C, H * W]
+        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N * S, H * W, C]
         q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
 
-        # Apply attention across spatial dimensions
+        # Apply attention
         attn_output, _ = self.attention(q, k, v, need_weights=False)  # [N * S, H * W, C]
 
         # Reshape the output back to [N, S, C, H, W]
         attn_output = attn_output.view(N, S, C, H, W)
 
-        # Combine slices (e.g., using mean or sum)
-        h_combined = attn_output.mean(dim=1)  # [N, C, H, W]
+        # Combine the slices (using mean or sum)
+        h_combined = attn_output.mean(dim=1)  # Combine slices to [N, C, H, W]
 
         # Apply the output projection
-        h_combined = self.out_proj(h_combined)
+        h_combined = self.out_proj(h_combined)  # Final output [N, C, H, W]
 
         return h_combined
+
 
 
 class SuperResModel(UNetModel):
