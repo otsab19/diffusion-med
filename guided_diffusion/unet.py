@@ -759,7 +759,9 @@ class SuperResModel(UNetModel):
 
         # Permute back and reshape
         attended = attended.permute(1, 2, 0)
-        attended = attended.view(batch_size, -1, height, width)
+        # attended = attended.view(batch_size, -1, height, width)
+        attended = attended.reshape(batch_size, -1, height, width)
+
 
         # Combine with input x
         x = x + attended
