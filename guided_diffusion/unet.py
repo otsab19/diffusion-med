@@ -747,8 +747,9 @@ class SliceAttention(nn.Module):
         self.channels = channels
         print(f"Channels in SliceAttention: {channels}")
         self.num_slices = num_slices
+        self.num_heads = 1 if channels == 1 else 4
         self.qkv_proj = nn.Conv2d(channels, channels * 3, kernel_size=1)
-        self.attention = nn.MultiheadAttention(channels, num_heads=4)
+        self.attention = nn.MultiheadAttention(channels, num_heads=self.num_heads)
         self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
 
     def forward(self, h):
