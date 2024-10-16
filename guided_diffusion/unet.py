@@ -756,6 +756,7 @@ class SliceAttention(nn.Module):
     def forward(self, h):
         # h shape: [N, C, num_slices, H, W]
         N, C, S, H, W = h.shape
+        print("----", N, C, S, H, W)
         h = h.permute(0, 2, 1, 3, 4)  # [N, num_slices, C, H, W]
         h = h.reshape(N * S, C, H, W)  # Merge batch and slices
 
