@@ -743,7 +743,7 @@ class SliceAttention(nn.Module):
     Custom attention module that computes attention over adjacent slices.
     """
 
-    def __init__(self, channels, num_slices=3):
+    def __init__(self, channels, num_slices=4):
         super(SliceAttention, self).__init__()
         self.channels = channels
         print(f"Channels in SliceAttention: {channels}")
@@ -757,25 +757,27 @@ class SliceAttention(nn.Module):
         # h shape: [N, C, num_slices, H, W]
         N, C, S, H, W = h.shape
 
-        # Merge batch and slice dimensions, and apply channel-wise projection
+        # Combine the slice dimension (S) and the batch dimension (N * S)
+        h = h.permute(0, 2, 1, 3, 4)  # [N, S, C, H, W] -> [N, C, S, H, W]
         h = h.view(N * S, C, H, W)  # [N * S, C, H, W]
 
-        # Project to Q, K, V
+        # Apply the projection layer (qkv_proj)
         qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
         qkv = qkv.view(N * S, 3, C, H * W)  # [N * S, 3, C, H * W]
         qkv = qkv.permute(1, 0, 3, 2)  # [3, N * S, H * W, C]
         q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
 
-        # Apply attention
-        attn_output, _ = self.attention(
-            query=q, key=k, value=v, need_weights=False
-        )  # [N * S, H * W, C]
+        # Apply attention across spatial dimensions
+        attn_output, _ = self.attention(q, k, v, need_weights=False)  # [N * S, H * W, C]
 
-        attn_output = attn_output.view(N, S, C, H, W)  # Reshape back to [N, S, C, H, W]
+        # Reshape the output back to [N, S, C, H, W]
+        attn_output = attn_output.view(N, S, C, H, W)
 
         # Combine slices (e.g., using mean or sum)
         h_combined = attn_output.mean(dim=1)  # [N, C, H, W]
-        h_combined = self.out_proj(h_combined)  # Apply final projection
+
+        # Apply the output projection
+        h_combined = self.out_proj(h_combined)
 
         return h_combined
 
