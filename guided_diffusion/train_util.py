@@ -224,6 +224,7 @@ class TrainLoop:
 
         # Access data with the batch of indices
         batch_data = self.data[batch_idx_list]
+        print("batch data::",batch_data)
 
         # Unpack the data dictionary (make sure it matches the keys returned by your dataset)
         hr_data = batch_data['hr_slice']
