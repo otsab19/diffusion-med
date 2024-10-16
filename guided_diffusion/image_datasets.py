@@ -64,6 +64,7 @@ class BraTSMRI(Dataset):
         return self.hr_data.shape[0]
 
     def __getitem__(self, index):
+        print("index:---", index)
         # Extract subject and slice index
         subject_idx = index // self.num_slices
         slice_idx = index % self.num_slices
