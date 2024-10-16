@@ -67,26 +67,22 @@ class BraTSMRI(Dataset):
         """
         Fetch the current slice and adjacent slices for a given subject and slice index.
         """
-        # Fetch the current slice for HR, LR, and Other
-        hr_slice = self.hr_data[subject_idx, :, slice_idx]
-        lr_slice = self.lr_data[subject_idx, :, slice_idx]
-        other_slice = self.other_data[subject_idx, :, slice_idx]
 
-        # Get adjacent slices, considering edge cases (start and end)
+        # Get adjacent slices range, ensure boundaries
         start_idx = max(0, slice_idx - self.num_adjacent_slices // 2)
         end_idx = min(self.num_slices, slice_idx + self.num_adjacent_slices // 2 + 1)
 
-        # Fetch adjacent slices
-        hr_adj_slices = self.hr_data[subject_idx, :, start_idx:end_idx]
-        lr_adj_slices = self.lr_data[subject_idx, :, start_idx:end_idx]
-        other_adj_slices = self.other_data[subject_idx, :, start_idx:end_idx]
+        # Fetch adjacent slices for HR, LR, and Other
+        hr_adj_slices = self.hr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
+        lr_adj_slices = self.lr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
+        other_adj_slices = self.other_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
 
-        # Ensure hr_adj_slices, lr_adj_slices, other_adj_slices have 5 dimensions
-        hr_adj_slices = hr_adj_slices.unsqueeze(0)  # Add a batch dimension if missing
-        lr_adj_slices = lr_adj_slices.unsqueeze(0)
-        other_adj_slices = other_adj_slices.unsqueeze(0)
-        return hr_slice, lr_slice, other_slice, hr_adj_slices, lr_adj_slices, other_adj_slices
+        # Stack adjacent slices to ensure correct shape (N, C, S, H, W)
+        hr_adj_slices = torch.stack([hr_adj_slices], dim=0)
+        lr_adj_slices = torch.stack([lr_adj_slices], dim=0)
+        other_adj_slices = torch.stack([other_adj_slices], dim=0)
 
+        return hr_adj_slices, lr_adj_slices, other_adj_slices
     def __getitem__(self, index):
         if isinstance(index, (list, np.ndarray)):
             # If batch index is a list/array, process each index in the batch
