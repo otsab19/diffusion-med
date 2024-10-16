@@ -732,43 +732,66 @@ class SuperResModel(UNetModel):
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
-
     def attend(self, x, prev_output):
-
         batch_size, channels, height, width = x.size()
-        assert channels == self.embedding_dim, f"Expected x to have {self.embedding_dim} channels, got {channels}"
-
-        # Assume x and prev_output are of shape (batch_size, channels, height, width)
-        # Divide height and width by patch size
         patch_size = 16
+        # Ensure height and width are divisible by patch_size
+        assert height % patch_size == 0 and width % patch_size == 0, "Image dimensions must be divisible by patch_size."
+
+        # Divide images into patches
         x_patches = x.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
         prev_patches = prev_output.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
-        # Reshape to (batch_size, channels, num_patches)
-        x_reshaped = x_patches.contiguous().view(batch_size, channels, -1)
-        prev_output_reshaped = prev_patches.contiguous().view(batch_size, channels, -1)
-        # Permute and apply attention as before
-        # Flatten spatial dimensions
 
-        # x_reshaped = x.view(batch_size, channels, -1)  # Shape: (batch_size, channels, seq_length)
-        # prev_output_reshaped = prev_output.view(batch_size, channels, -1)  # Same shape
+        # Reshape to (batch_size * num_patches, channels, patch_size, patch_size)
+        x_patches = x_patches.contiguous().view(-1, channels, patch_size, patch_size)
+        prev_patches = prev_patches.contiguous().view(-1, channels, patch_size, patch_size)
 
-        # Permute to (seq_length, batch_size, embedding_dim) as expected by nn.MultiheadAttention
-        # x_reshaped = x_reshaped.permute(2, 0, 1)  # Shape: (seq_length, batch_size, embedding_dim)
-        # prev_output_reshaped = prev_output_reshaped.permute(2, 0, 1)  # Same shape
+        # Flatten patches
+        x_patches = x_patches.view(-1, channels, patch_size * patch_size)
+        prev_patches = prev_patches.view(-1, channels, patch_size * patch_size)
 
-        # Apply MultiheadAttention
-        attended, _ = self.attention(query=x_reshaped, key=prev_output_reshaped, value=prev_output_reshaped)
+        # Permute for attention
+        x_patches = x_patches.permute(2, 0, 1)
+        prev_patches = prev_patches.permute(2, 0, 1)
 
-        # Permute back to (batch_size, embedding_dim, seq_length)
+        # Apply attention
+        attended, _ = self.attention(query=x_patches, key=prev_patches, value=prev_patches)
+
+        # Permute back and reshape
         attended = attended.permute(1, 2, 0)
+        attended = attended.view(batch_size, -1, height, width)
 
-        # Reshape back to (batch_size, embedding_dim, height, width)
-        attended = attended.view(batch_size, self.embedding_dim, height, width)
-
-        # Combine with input x (you can adjust how you combine them)
+        # Combine with input x
         x = x + attended
 
         return x
+
+
+    # def attend(self, x, prev_output):
+    #     batch_size, channels, height, width = x.size()
+    #     assert channels == self.embedding_dim, f"Expected x to have {self.embedding_dim} channels, got {channels}"
+    #
+    #     # Flatten spatial dimensions
+    #     x_reshaped = x.view(batch_size, channels, -1)  # Shape: (batch_size, channels, seq_length)
+    #     prev_output_reshaped = prev_output.view(batch_size, channels, -1)  # Same shape
+    #
+    #     # Permute to (seq_length, batch_size, embedding_dim) as expected by nn.MultiheadAttention
+    #     x_reshaped = x_reshaped.permute(2, 0, 1)  # Shape: (seq_length, batch_size, embedding_dim)
+    #     prev_output_reshaped = prev_output_reshaped.permute(2, 0, 1)  # Same shape
+    #
+    #     # Apply MultiheadAttention
+    #     attended, _ = self.attention(query=x_reshaped, key=prev_output_reshaped, value=prev_output_reshaped)
+    #
+    #     # Permute back to (batch_size, embedding_dim, seq_length)
+    #     attended = attended.permute(1, 2, 0)
+    #
+    #     # Reshape back to (batch_size, embedding_dim, height, width)
+    #     attended = attended.view(batch_size, self.embedding_dim, height, width)
+    #
+    #     # Combine with input x (you can adjust how you combine them)
+    #     x = x + attended
+    #
+    #     return x
 
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
