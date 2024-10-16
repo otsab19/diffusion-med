@@ -81,6 +81,10 @@ class BraTSMRI(Dataset):
         lr_adj_slices = self.lr_data[subject_idx, :, start_idx:end_idx]
         other_adj_slices = self.other_data[subject_idx, :, start_idx:end_idx]
 
+        # Ensure hr_adj_slices, lr_adj_slices, other_adj_slices have 5 dimensions
+        hr_adj_slices = hr_adj_slices.unsqueeze(0)  # Add a batch dimension if missing
+        lr_adj_slices = lr_adj_slices.unsqueeze(0)
+        other_adj_slices = other_adj_slices.unsqueeze(0)
         return hr_slice, lr_slice, other_slice, hr_adj_slices, lr_adj_slices, other_adj_slices
 
     def __getitem__(self, index):
