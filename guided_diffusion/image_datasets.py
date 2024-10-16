@@ -63,12 +63,10 @@ class BraTSMRI(Dataset):
     def __len__(self):
         return self.hr_data.shape[0]
 
-    def __getitem__(self, index):
-        print("index:---", index)
-        # Extract subject and slice index
-        subject_idx = index // self.num_slices
-        slice_idx = index % self.num_slices
-
+    def _fetch_slices(self, subject_idx, slice_idx):
+        """
+        Fetch the current slice and adjacent slices for a given subject and slice index.
+        """
         # Fetch the current slice for HR, LR, and Other
         hr_slice = self.hr_data[subject_idx, :, slice_idx]
         lr_slice = self.lr_data[subject_idx, :, slice_idx]
@@ -83,11 +81,21 @@ class BraTSMRI(Dataset):
         lr_adj_slices = self.lr_data[subject_idx, :, start_idx:end_idx]
         other_adj_slices = self.other_data[subject_idx, :, start_idx:end_idx]
 
-        return {
-            'hr_slice': hr_slice,  # Original HR slice [1, H, W]
-            'lr_slice': lr_slice,  # Original LR slice [1, H, W]
-            'other_slice': other_slice,  # Original Other slice [1, H, W]
-            'hr_adj_slices': hr_adj_slices,  # Adjacent HR slices [num_adj_slices, 1, H, W]
-            'lr_adj_slices': lr_adj_slices,  # Adjacent LR slices [num_adj_slices, 1, H, W]
-            'other_adj_slices': other_adj_slices  # Adjacent Other slices [num_adj_slices, 1, H, W]
-        }
+        return hr_slice, lr_slice, other_slice, hr_adj_slices, lr_adj_slices, other_adj_slices
+
+    def __getitem__(self, index):
+        if isinstance(index, (list, np.ndarray)):
+            # If batch index is a list/array, process each index in the batch
+            batch_results = []
+            for idx in index:
+                subject_idx = idx // self.num_slices
+                slice_idx = idx % self.num_slices
+                # Fetch slices and append to batch_results
+                result = self._fetch_slices(subject_idx, slice_idx)
+                batch_results.append(result)
+            return batch_results
+        else:
+            # If single index, process normally
+            subject_idx = index // self.num_slices
+            slice_idx = index % self.num_slices
+            return self._fetch_slices(subject_idx, slice_idx)
