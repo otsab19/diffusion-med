@@ -31,12 +31,13 @@ def load_data(
 
 
 class BraTSMRI(Dataset):
-    def __init__(self, hr_data_name, lr_data_name, other_data_name):
+    def __init__(self, hr_data_name, lr_data_name, other_data_name, num_adjacent_slices = 4):
         self.hr_data, self.lr_data, self.other_data = np.load(hr_data_name, mmap_mode="r")[:, 40:60 ], \
                                                       np.load(lr_data_name, mmap_mode="r")[:, 40:60], \
                                                       np.load(other_data_name, mmap_mode="r")[:, 40:60]
-
+        self.num_adjacent_slices = num_adjacent_slices  # Save the number of slices
         num_subject, num_slice, h, w = self.hr_data.shape
+        self.num_slices = num_slice
         self.hr_data = self.hr_data.reshape(num_subject * num_slice, h, w)
         self.lr_data = self.lr_data.reshape(num_subject * num_slice, h, w)
         self.other_data = self.other_data.reshape(num_subject * num_slice, h, w)
@@ -63,4 +64,29 @@ class BraTSMRI(Dataset):
         return self.hr_data.shape[0]
 
     def __getitem__(self, index):
-        return self.hr_data[index], self.lr_data[index], self.other_data[index]
+        # Extract subject and slice index
+        subject_idx = index // self.num_slices
+        slice_idx = index % self.num_slices
+
+        # Fetch the current slice for HR, LR, and Other
+        hr_slice = self.hr_data[subject_idx, :, slice_idx]
+        lr_slice = self.lr_data[subject_idx, :, slice_idx]
+        other_slice = self.other_data[subject_idx, :, slice_idx]
+
+        # Get adjacent slices, considering edge cases (start and end)
+        start_idx = max(0, slice_idx - self.num_adjacent_slices // 2)
+        end_idx = min(self.num_slices, slice_idx + self.num_adjacent_slices // 2 + 1)
+
+        # Fetch adjacent slices
+        hr_adj_slices = self.hr_data[subject_idx, :, start_idx:end_idx]
+        lr_adj_slices = self.lr_data[subject_idx, :, start_idx:end_idx]
+        other_adj_slices = self.other_data[subject_idx, :, start_idx:end_idx]
+
+        return {
+            'hr_slice': hr_slice,  # Original HR slice [1, H, W]
+            'lr_slice': lr_slice,  # Original LR slice [1, H, W]
+            'other_slice': other_slice,  # Original Other slice [1, H, W]
+            'hr_adj_slices': hr_adj_slices,  # Adjacent HR slices [num_adj_slices, 1, H, W]
+            'lr_adj_slices': lr_adj_slices,  # Adjacent LR slices [num_adj_slices, 1, H, W]
+            'other_adj_slices': other_adj_slices  # Adjacent Other slices [num_adj_slices, 1, H, W]
+        }

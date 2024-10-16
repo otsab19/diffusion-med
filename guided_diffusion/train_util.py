@@ -144,8 +144,22 @@ class TrainLoop:
 
     def get_dataloader(self):
         loader = self.load_dataloader()
-        for hr_data, lr_data, other_data in loader:
-            model_kwargs = {"low_res": lr_data, "other": other_data}
+        for data in loader:
+            # Extract the original slices and adjacent slices
+            hr_data = data['hr_slice']
+            lr_data = data['lr_slice']
+            other_data = data['other_slice']
+            hr_adj_slices = data['hr_adj_slices']
+            lr_adj_slices = data['lr_adj_slices']
+            other_adj_slices = data['other_adj_slices']
+
+            model_kwargs = {
+                "low_res": lr_data,
+                "other": other_data,
+                "hr_adj_slices": hr_adj_slices,  # Adjacent HR slices
+                "lr_adj_slices": lr_adj_slices,  # Adjacent LR slices
+                "other_adj_slices": other_adj_slices  # Adjacent Other slices
+            }
             yield hr_data, model_kwargs
 
     def _load_and_sync_parameters(self):

@@ -487,6 +487,8 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
+        # slice attn
+        self.slice_attention = SliceAttention(channels=self.in_channels)
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -675,7 +677,7 @@ class UNetModel(nn.Module):
         self.middle_block.apply(convert_module_to_f32)
         self.output_blocks.apply(convert_module_to_f32)
 
-    def forward(self, x, timesteps, low_res, other):
+    def forward(self, x, timesteps, low_res, other, hr_adj_slices=None, lr_adj_slices=None, other_adj_slices=None):
         """
         Apply the model to an input batch.
         :param x: an [N x C x ...] Tensor of inputs.
@@ -693,6 +695,15 @@ class UNetModel(nn.Module):
         # has_other = (th.count_nonzero(other) > 0)
         h3 = other.type(self.dtype)
 
+        # Apply slice attention on adjacent slices if they are provided
+        if hr_adj_slices is not None:
+            h1 = self.slice_attention(hr_adj_slices)
+        if lr_adj_slices is not None:
+            h2 = self.slice_attention(lr_adj_slices)
+        if other_adj_slices is not None:
+            h3 = self.slice_attention(other_adj_slices)
+
+        # Encoder path
         for idx in range(len(self.input_blocks)):
             h1 = self.input_blocks[idx](h1, emb)
             h2 = self.input_blocks_lr[idx](h2, emb)
@@ -708,7 +719,6 @@ class UNetModel(nn.Module):
         dist_h1 = self.SE_Attention_dist_1(dist_h1)
         dist_h2 = self.SE_Attention_dist_2(dist_h2)
 
-
         com_h3 = self.conv_common(h3)
         dist_h3 = self.conv_distinct(h3)
         com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
@@ -717,12 +727,53 @@ class UNetModel(nn.Module):
         h = self.dim_reduction_non_zeros(h)
 
         h = self.middle_block(h, emb)
+
+        # Decoder path
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
 
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
+
+
+class SliceAttention(nn.Module):
+    """
+    Custom attention module that computes attention over adjacent slices.
+    """
+
+    def __init__(self, channels, num_slices=3):
+        super(SliceAttention, self).__init__()
+        self.channels = channels
+        self.num_slices = num_slices
+        self.qkv_proj = nn.Conv2d(channels, channels * 3, kernel_size=1)
+        self.attention = nn.MultiheadAttention(channels, num_heads=4)
+        self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
+
+    def forward(self, h):
+        # h shape: [N, C, num_slices, H, W]
+        N, C, S, H, W = h.shape
+        h = h.permute(0, 2, 1, 3, 4)  # [N, num_slices, C, H, W]
+        h = h.reshape(N * S, C, H, W)  # Merge batch and slices
+
+        # Project to Q, K, V
+        qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
+        qkv = qkv.reshape(N * S, 3, C, H * W)
+        qkv = qkv.permute(1, 0, 3, 2)  # [3, N * S, H * W, C]
+        q, k, v = qkv[0], qkv[1], qkv[2]
+
+        # Apply attention
+        attn_output, _ = self.attention(
+            query=q, key=k, value=v, need_weights=False
+        )  # [N * S, H * W, C]
+
+        attn_output = attn_output.reshape(N, S, H * W, C)
+        attn_output = attn_output.permute(0, 3, 1, 2).reshape(N, C, S, H, W)
+
+        # Combine slices (e.g., using sum or mean)
+        h_combined = attn_output.mean(dim=2)  # [N, C, H, W]
+        h_combined = self.out_proj(h_combined)
+        return h_combined
 
 
 class SuperResModel(UNetModel):
@@ -733,11 +784,14 @@ class SuperResModel(UNetModel):
 
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
+        # Define the custom slice attention module
+        # self.slice_attention = SliceAttention(channels=self.in_channels)
         print(image_size)
-    def forward(self, x, timesteps,**kwargs):
+
+    def forward(self, x, timesteps, **kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-        return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])
+        return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'], kwargs['hr_adj_slices'], kwargs['lr_adj_slices'], kwargs['other_adj_slices'])
 
 
 class EncoderUNetModel(nn.Module):
@@ -769,6 +823,7 @@ class EncoderUNetModel(nn.Module):
             pool="adaptive",
     ):
         super().__init__()
+
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
         self.in_channels = in_channels
