@@ -742,7 +742,7 @@ class SliceAttention(nn.Module):
     Custom attention module that computes attention over adjacent slices.
     """
 
-    def __init__(self, channels, num_slices=5):
+    def __init__(self, channels, num_slices=4):
         super(SliceAttention, self).__init__()
         self.channels = num_slices
         print(f"Channels in SliceAttention: {channels}")
