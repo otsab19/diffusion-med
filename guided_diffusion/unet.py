@@ -757,12 +757,16 @@ class SliceAttention(nn.Module):
         # h shape: [N, C, S, H, W] where S is the number of adjacent slices
         N, C, S, H, W = h.shape
 
-        # Take the mean over the slice dimension S
+        # Average over slices to collapse the S dimension (slice averaging)
         h_avg = h.mean(dim=2)  # h_avg shape: [N, C, H, W]
+
+        # Ensure we maintain the number of channels after averaging
+        if C != self.channels:
+            h_avg = h_avg.view(N, 1, H, W)  # Reshape to [N, 1, H, W]
 
         # Project to Q, K, V
         qkv = self.qkv_proj(h_avg)  # [N, 3C, H, W]
-        qkv = qkv.view(N, 3, C, H * W)  # Reshape to [N, 3, C, H * W]
+        qkv = qkv.view(N, 3, self.channels, H * W)  # Reshape to [N, 3, C, H * W]
         qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N, H * W, C]
         q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
 
@@ -770,7 +774,7 @@ class SliceAttention(nn.Module):
         attn_output, _ = self.attention(q, k, v, need_weights=False)  # [N, H * W, C]
 
         # Reshape the output back to [N, C, H, W]
-        attn_output = attn_output.view(N, C, H, W)
+        attn_output = attn_output.view(N, self.channels, H, W)
 
         # Apply the output projection
         h_combined = self.out_proj(attn_output)  # Final output [N, C, H, W]
