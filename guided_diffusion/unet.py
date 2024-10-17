@@ -487,8 +487,6 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        # slice attn
-        self.slice_attention = SliceAttention(channels=self.in_channels)
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -677,7 +675,7 @@ class UNetModel(nn.Module):
         self.middle_block.apply(convert_module_to_f32)
         self.output_blocks.apply(convert_module_to_f32)
 
-    def forward(self, x, timesteps, low_res, other, hr_adj_slices=None, lr_adj_slices=None, other_adj_slices=None):
+    def forward(self, x, timesteps, low_res, other):
         """
         Apply the model to an input batch.
         :param x: an [N x C x ...] Tensor of inputs.
@@ -694,23 +692,6 @@ class UNetModel(nn.Module):
         # print(th.count_nonzero(other))
         # has_other = (th.count_nonzero(other) > 0)
         h3 = other.type(self.dtype)
-        print("adj slices::", hr_adj_slices.shape, lr_adj_slices.shape, other_adj_slices.shape)
-        # Apply slice attention on adjacent slices if they are provided
-        # Concatenate current slices with adjacent slices before applying attention
-        if hr_adj_slices is not None:
-            # Concatenate the current h1 with adjacent slices along the slice dimension
-            h1_with_adj = th.cat([h1.unsqueeze(1), hr_adj_slices], dim=1)
-            h1 = self.slice_attention(h1_with_adj)
-
-        if lr_adj_slices is not None:
-            # Concatenate the current h2 with adjacent slices along the slice dimension
-            h2_with_adj = th.cat([h2.unsqueeze(1), lr_adj_slices], dim=1)
-            h2 = self.slice_attention(h2_with_adj)
-
-        if other_adj_slices is not None:
-            # Concatenate the current h3 with adjacent slices along the slice dimension
-            h3_with_adj = th.cat([h3.unsqueeze(1), other_adj_slices], dim=1)
-            h3 = self.slice_attention(h3_with_adj)
 
         # Encoder path
         for idx in range(len(self.input_blocks)):
@@ -744,6 +725,7 @@ class UNetModel(nn.Module):
         h = h.type(x.dtype)
 
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
+
 
 
 class SliceAttention(nn.Module):
@@ -803,12 +785,22 @@ class SuperResModel(UNetModel):
         super().__init__(image_size, in_channels, *args, **kwargs)
         # Define the custom slice attention module
         # self.slice_attention = SliceAttention(channels=self.in_channels)
+        self.attention_block = SliceAttention(channels=in_channels)
         print(image_size)
 
     def forward(self, x, timesteps, **kwargs):
-        # _, _, new_height, new_width = x.shape
-        # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-        return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'], kwargs['hr_adj_slices'], kwargs['lr_adj_slices'], kwargs['other_adj_slices'])
+        # Fetch adjacent slices from kwargs
+        hr_adj_slices = kwargs.get('hr_adj_slices')
+        lr_adj_slices = kwargs.get('lr_adj_slices')
+        other_adj_slices = kwargs.get('other_adj_slices')
+
+        # Apply attention across the current and adjacent slices
+        attended_hr = self.attention_block(x, hr_adj_slices)
+        attended_lr = self.attention_block(kwargs['low_res'], lr_adj_slices)
+        attended_other = self.attention_block(kwargs['other'], other_adj_slices)
+
+        # Pass the attended slices into the UNet model for further processing
+        return super().forward(attended_hr, timesteps, low_res=attended_lr, other=attended_other)
 
 
 class EncoderUNetModel(nn.Module):
