@@ -757,26 +757,23 @@ class SliceAttention(nn.Module):
         # h shape: [N, C, S, H, W] where S is the number of adjacent slices
         N, C, S, H, W = h.shape
 
-        # Reshape the input to treat the slices as the batch dimension
-        h = h.view(N * S, C, H, W)  # Merge slices into batch [N * S, C, H, W]
+        # Take the mean over the slice dimension S
+        h_avg = h.mean(dim=2)  # h_avg shape: [N, C, H, W]
 
         # Project to Q, K, V
-        qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
-        qkv = qkv.view(N * S, 3, C, H * W)  # Reshape to [N * S, 3, C, H * W]
-        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N * S, H * W, C]
+        qkv = self.qkv_proj(h_avg)  # [N, 3C, H, W]
+        qkv = qkv.view(N, 3, C, H * W)  # Reshape to [N, 3, C, H * W]
+        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N, H * W, C]
         q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
 
         # Apply attention
-        attn_output, _ = self.attention(q, k, v, need_weights=False)  # [N * S, H * W, C]
+        attn_output, _ = self.attention(q, k, v, need_weights=False)  # [N, H * W, C]
 
-        # Reshape the output back to [N, S, C, H, W]
-        attn_output = attn_output.view(N, S, C, H, W)
-
-        # Combine the slices (using mean or sum)
-        h_combined = attn_output.mean(dim=1)  # Combine slices to [N, C, H, W]
+        # Reshape the output back to [N, C, H, W]
+        attn_output = attn_output.view(N, C, H, W)
 
         # Apply the output projection
-        h_combined = self.out_proj(h_combined)  # Final output [N, C, H, W]
+        h_combined = self.out_proj(attn_output)  # Final output [N, C, H, W]
 
         return h_combined
 
