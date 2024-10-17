@@ -471,7 +471,7 @@ class UNetModel(nn.Module):
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
-
+        self.attention_feedback = AttentionBlock(self.model_channels)  # Add an attention block for feedback
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -684,6 +684,7 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         hs = []
+        feedback = None
         print("x shape::", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         h1 = x.type(self.dtype)
@@ -697,7 +698,17 @@ class UNetModel(nn.Module):
             h1 = self.input_blocks[idx](h1, emb)
             h2 = self.input_blocks_lr[idx](h2, emb)
             h3 = self.input_blocks_other[idx](h3, emb)
+
+            # Incorporate feedback
+            if feedback is not None:
+                # Use attention over feedback to choose important features
+                feedback = self.attention_feedback(feedback)
+                h1 = h1 + feedback
+                h2 = h2 + feedback
+                h3 = h3 + feedback
+
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
+            feedback = hs[-1]  # Update feedback with current output
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
