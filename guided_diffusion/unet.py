@@ -3,6 +3,7 @@ from abc import abstractmethod
 import math
 
 import numpy as np
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
@@ -729,49 +730,42 @@ class UNetModel(nn.Module):
 
 
 class SliceAttention(nn.Module):
-    """
-    Custom attention module that computes attention over adjacent slices, including the current slice.
-    """
+    def __init__(self, channels, num_heads=4):
+        super().__init__()
+        self.num_heads = num_heads
+        self.query = nn.Conv2d(channels, channels, kernel_size=1)
+        self.key = nn.Conv2d(channels, channels, kernel_size=1)
+        self.value = nn.Conv2d(channels, channels, kernel_size=1)
+        self.softmax = nn.Softmax(dim=-1)
 
-    def __init__(self, channels, num_slices=4):
-        super(SliceAttention, self).__init__()
-        self.channels = channels
-        self.num_slices = num_slices
-        self.num_heads = 1 if channels == 1 else 4  # Adjust heads based on channels
-        self.qkv_proj = nn.Conv2d(channels, channels * 3, kernel_size=1)
-        self.attention = nn.MultiheadAttention(channels, num_heads=self.num_heads)
-        self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
+    def forward(self, current_slice, adjacent_slices):
+        """
+        Apply multi-head attention across the current slice and neighboring slices.
+        :param current_slice: the current high-res slice (1 slice)
+        :param adjacent_slices: the adjacent slices for attention (multiple slices)
+        :return: attention-weighted combined feature map
+        """
+        b, c, h, w = current_slice.shape
 
-    def forward(self, h):
-        print("Input to SliceAttention (H)::", h.shape)
-        # h shape: [N, S, C, H, W] where S is the number of adjacent slices
-        N, S, C, H, W = h.shape
+        # Compute Q, K, V for current slice
+        query = self.query(current_slice).view(b, c, -1)  # Shape (b, c, hw)
 
-        # Reshape to treat slices as batch elements (flatten S)
-        h = h.view(N * S, C, H, W)  # [N * S, C, H, W]
+        # Compute K, V for adjacent slices (stacked adjacent slices)
+        key = self.key(adjacent_slices).view(b, c, -1)
+        value = self.value(adjacent_slices).view(b, c, -1)
 
-        # Project to Q, K, V
-        qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
-        qkv = qkv.view(N * S, 3, C, H * W)  # [N * S, 3, C, H*W]
-        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N * S, H*W, C]
-        q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
+        # Attention score: Q x K^T
+        attention_scores = torch.einsum('bcn,bcm->bnm', query, key)
+        attention_weights = self.softmax(attention_scores)  # Shape (b, n, m)
 
-        # Apply attention
-        attn_output, _ = self.attention(q, k, v)  # [N * S, H*W, C]
+        # Attention-weighted sum of values
+        weighted_sum = torch.einsum('bnm,bcm->bcn', attention_weights, value)
 
-        # Reshape output back to [N, S, C, H, W]
-        attn_output = attn_output.view(N, S, C, H, W)
+        # Reshape back to (B, C, H, W) and combine with current slice
+        attended_slice = weighted_sum.view(b, c, h, w)
 
-        # Instead of reducing by taking the mean, return the full shape
-        # Apply output projection to each slice individually
-        h_combined = self.out_proj(attn_output.view(N * S, C, H, W))  # [N * S, C, H, W]
-
-        # Reshape back to [N, S, C, H, W]
-        h_combined = h_combined.view(N, S, C, H, W)
-
-        # You can return `h_combined` without reduction, aligning with the previous implementation
-        return h_combined[:, 0, :, :, :]  # Return only the current slice if needed
-
+        # Return the attended slice combined with the current slice
+        return current_slice + attended_slice
 
 
 
