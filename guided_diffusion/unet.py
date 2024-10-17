@@ -791,7 +791,11 @@ class SuperResModel(UNetModel):
         lr_adj_slices = kwargs.get('lr_adj_slices')
         other_adj_slices = kwargs.get('other_adj_slices')
 
-        # Ensure x has a channel dimension [B, C, H, W]
+        print(f"Shape of current slice (x): {x.shape}")
+        print(f"Shape of adjacent HR slices: {hr_adj_slices.shape}")
+
+
+# Ensure x has a channel dimension [B, C, H, W]
         if len(x.shape) == 3:  # Assuming x is [B, H, W]
             x = x.unsqueeze(1)  # Add a channel dimension -> [B, 1, H, W]
 

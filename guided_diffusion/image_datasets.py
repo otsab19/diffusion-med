@@ -71,6 +71,12 @@ class BraTSMRI(Dataset):
         hr_slice = self.hr_data[subject_idx, :, slice_idx]
         lr_slice = self.lr_data[subject_idx, :, slice_idx]
         other_slice = self.other_data[subject_idx, :, slice_idx]
+
+        # Ensure these have proper shapes before returning
+        print(f"Shape of fetched HR slice: {hr_slice.shape}")
+        print(f"Shape of fetched LR slice: {lr_slice.shape}")
+        print(f"Shape of fetched Other slice: {other_slice.shape}")
+
         # Get adjacent slices range, ensure boundaries
         start_idx = max(0, slice_idx - self.num_adjacent_slices // 2)
         end_idx = min(self.num_slices, slice_idx + self.num_adjacent_slices // 2 + 1)
