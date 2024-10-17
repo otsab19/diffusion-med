@@ -471,7 +471,6 @@ class UNetModel(nn.Module):
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
-        self.attention_feedback = AttentionBlock(self.model_channels)  # Add an attention block for feedback
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -496,6 +495,11 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
+        self.attention_feedback = AttentionBlock(ch,
+                                                 use_checkpoint=use_checkpoint,
+                                                 num_heads=num_heads,
+                                                 num_head_channels=num_head_channels,
+                                                 use_new_attention_order=use_new_attention_order)  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
