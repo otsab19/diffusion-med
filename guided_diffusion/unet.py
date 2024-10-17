@@ -754,26 +754,29 @@ class SliceAttention(nn.Module):
 
     def forward(self, h):
         print("Input to SliceAttention (H)::", h.shape)
-        # h shape: [N, C, S, H, W] where S is the number of adjacent slices.
-        N, C, S, H, W = h.shape
+        # h shape: [N, S, C, H, W] where S is the number of adjacent slices.
+        N, S, C, H, W = h.shape
 
-        # Reshape the input to treat the slices as additional batch dimension.
-        h = h.view(N, C * S, H, W)  # [N, C*S, H, W] Merging slices into the channel dimension.
+        # Reshape the input to treat the slices as batch elements
+        h = h.view(N * S, C, H, W)  # Merge slices into the batch dimension [N * S, C, H, W]
 
-        # Project to Q, K, V for multi-head attention.
-        qkv = self.qkv_proj(h)  # [N, 3*C*S, H, W]
-        qkv = qkv.view(N, 3, C * S, H * W)  # [N, 3, C*S, H*W]
-        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N, H*W, C*S]
-        q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V.
+        # Project to Q, K, V
+        qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
+        qkv = qkv.view(N * S, 3, C, H * W)  # [N * S, 3, C, H*W]
+        qkv = qkv.permute(1, 0, 3, 2)  # Permute to [3, N * S, H*W, C]
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Split into Q, K, V
 
-        # Apply attention.
-        attn_output, _ = self.attention(q, k, v)  # [N, H*W, C*S]
+        # Apply attention
+        attn_output, _ = self.attention(q, k, v)  # [N * S, H*W, C]
 
-        # Reshape the output back to [N, C, H, W]
-        attn_output = attn_output.view(N, C, H, W)
+        # Reshape the output back to [N, S, C, H, W]
+        attn_output = attn_output.view(N, S, C, H, W)
 
-        # Apply the output projection.
-        h_combined = self.out_proj(attn_output)  # Final output [N, C, H, W]
+        # Combine the slices using mean across the slice dimension (S)
+        h_combined = attn_output.mean(dim=1)  # Combine slices to [N, C, H, W]
+
+        # Apply the output projection
+        h_combined = self.out_proj(h_combined)  # Final output [N, C, H, W]
 
         return h_combined
 
