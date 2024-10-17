@@ -20,6 +20,96 @@ from .nn import (
 
 import copy
 
+class EfficientAttentionBlock(nn.Module):
+    """
+    A more memory-efficient attention block using downsampling before and
+    upsampling after the attention to reduce the size of attention maps.
+    """
+
+    def __init__(
+            self,
+            channels,
+            num_heads=1,
+            num_head_channels=-1,
+            downsample_factor=2,  # Factor to downsample spatial dimensions
+            use_checkpoint=False,
+            use_new_attention_order=False,
+    ):
+        super().__init__()
+        self.channels = channels
+        self.num_heads = num_heads if num_head_channels == -1 else channels // num_head_channels
+        self.downsample_factor = downsample_factor
+        self.use_checkpoint = use_checkpoint
+        self.norm = normalization(channels)
+        self.qkv = conv_nd(1, channels, channels * 3, 1)
+
+        # Choose between legacy and new attention
+        if use_new_attention_order:
+            self.attention = QKVAttention(self.num_heads)
+        else:
+            self.attention = QKVAttentionLegacy(self.num_heads)
+
+        self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
+
+    def forward(self, x):
+        return checkpoint(self._forward, (x,), self.parameters(), True)
+
+    def _forward(self, x):
+        b, c, h, w = x.shape
+
+        # Downsample spatial dimensions before applying attention
+        downsampled_x = F.interpolate(x, scale_factor=1.0/self.downsample_factor, mode='nearest')
+
+        # Flatten for attention mechanism
+        b, c, *spatial = downsampled_x.shape
+        downsampled_x = downsampled_x.reshape(b, c, -1)
+
+        # Apply normalization and attention
+        qkv = self.qkv(self.norm(downsampled_x))
+        h = self.attention(qkv)
+        h = self.proj_out(h)
+
+        # Reshape back and upsample to original size
+        h = h.reshape(b, c, *spatial)
+        h = F.interpolate(h, size=(h, w), mode='nearest')
+
+        # Residual connection
+        return (x + h)
+
+class LinearAttentionBlock(nn.Module):
+    """
+    Linear attention block to reduce memory complexity and make the feedback attention mechanism
+    more GPU-friendly.
+    """
+
+    def __init__(self, channels, num_heads=1, use_checkpoint=False):
+        super().__init__()
+        self.channels = channels
+        self.num_heads = num_heads
+        self.use_checkpoint = use_checkpoint
+        self.norm = normalization(channels)
+        self.qkv = conv_nd(1, channels, channels * 3, 1)
+
+        # Linear attention layer
+        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
+
+        self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
+
+    def forward(self, x):
+        return checkpoint(self._forward, (x,), self.parameters(), True)
+
+    def _forward(self, x):
+        b, c, h, w = x.shape
+        x = x.view(b, c, -1).permute(0, 2, 1)  # Reshape for attention: [B, N, C]
+
+        # Apply normalization and attention
+        x = self.norm(x)
+        qkv = self.qkv(x)  # Project to QKV
+        h, _ = self.attention(qkv, qkv, qkv)  # Linear attention
+
+        # Project output back and reshape
+        h = self.proj_out(h)
+        return h.view(b, c, h, w)  # Reshape back to original shape
 
 class AttentionPool2d(nn.Module):
     """
@@ -495,7 +585,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
-        self.attention_feedback = AttentionBlock(ch,
+        self.attention_feedback = EfficientAttentionBlock(ch,
                                                  use_checkpoint=use_checkpoint,
                                                  num_heads=num_heads,
                                                  num_head_channels=num_head_channels,
