@@ -181,33 +181,38 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 
 
 class SE_Attention_Feedback(nn.Module):
-    def __init__(self, input_channels, reduction=8):
-        super().__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # Reduce spatial dimensions to 1x1
+    def __init__(self, input_channels=48, reduction=8):
+        super(SE_Attention_Feedback, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # Pool over spatial dimensions to get [batch_size, channels, 1, 1]
+
+        # Reduce the number of channels by the reduction factor
         reduced_channels = input_channels // reduction
 
-        # Adjust the Linear layers according to the input size
+        # Define the SE block with the correct linear layers
         self.se = nn.Sequential(
-            nn.Linear(input_channels, reduced_channels, bias=False),  # [batch_size, input_channels] -> [batch_size, reduced_channels]
+            nn.Linear(input_channels, reduced_channels, bias=False),  # Reduce dimensions
             nn.ReLU(inplace=True),
-            nn.Linear(reduced_channels, input_channels, bias=False),  # [batch_size, reduced_channels] -> [batch_size, input_channels]
+            nn.Linear(reduced_channels, input_channels, bias=False),  # Restore original dimensions
             nn.Sigmoid()
         )
 
     def forward(self, x):
-        b, c, _, _ = x.size()  # Expecting input [batch_size, channels, height, width]
-        print(x.shape)
-        # Apply average pooling to reduce the spatial dimensions to [batch_size, channels]
-        y = self.avg_pool(x).view(b, c)  # Now y is [batch_size, channels]
-        print(x.shape)
-        # Pass through the fully connected layers
-        y = self.se(y)  # Now y is [batch_size, channels]
-        print(x.shape)
-        # Reshape it back to [batch_size, channels, 1, 1] for broadcasting
+        # Get the shape of the input tensor
+        b, c, _, _ = x.size()  # [batch_size, channels, height, width]
+
+        # Perform global average pooling to reduce the spatial dimensions
+        y = self.avg_pool(x).view(b, c)  # Result is [batch_size, channels]
+
+        # Pass through the SE block
+        y = self.se(y)  # Result is still [batch_size, channels]
+
+        # Reshape back to [batch_size, channels, 1, 1] for broadcasting
         y = y.view(b, c, 1, 1)
 
-        # Multiply the attention weights element-wise with the input
-        return x * y.expand_as(x)  # Broadcasting y to match the shape of x
+        # Multiply with the original input (element-wise)
+        return x * y.expand_as(x)
+
+
 
 
 class SE_Attention(nn.Module):
