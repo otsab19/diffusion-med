@@ -815,7 +815,7 @@ class SuperResModel(UNetModel):
         attended_lr = self.attention_block(kwargs['low_res'], lr_adj_slices)
         attended_other = self.attention_block(kwargs['other'], other_adj_slices)
 
-        print(f"Shape after attention on HR slice: {attended_hr.shape}")
+        print(f"Shape after attention on HR, Lr and other slice: {attended_hr.shape} {attended_lr.shape} {attended_other.shape}")
 
         # Pass the attended slices into the UNet model for further processing
         # We need to ensure that the return signature matches the base UNet model
