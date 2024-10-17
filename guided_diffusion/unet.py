@@ -197,6 +197,7 @@ class SE_Attention_Feedback(nn.Module):
         )
 
     def forward(self, x):
+        print(f"x shape before SE attention: {x.shape}")
         # Get the shape of the input tensor
         b, c, _, _ = x.size()  # [batch_size, channels, height, width]
 
@@ -205,7 +206,7 @@ class SE_Attention_Feedback(nn.Module):
 
         # Pass through the SE block
         y = self.se(y)  # Result is still [batch_size, channels]
-
+        print(f"x shape after SE attention: {y.shape}")
         # Reshape back to [batch_size, channels, 1, 1] for broadcasting
         y = y.view(b, c, 1, 1)
 
@@ -629,7 +630,7 @@ class UNetModel(nn.Module):
         )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
-
+        print("chh::", ch)
         self.attention_feedback = SE_Attention_Feedback(input_channels=int(ch / 2), reduction=8)
         # self.attention_feedback = AttentionBlock(ch,
         #                                          use_checkpoint=use_checkpoint,
