@@ -722,7 +722,7 @@ class UNetModel(nn.Module):
             h = module(h, emb)
         h = h.type(x.dtype)
         print("h::",h.shape)
-        print(l)
+        # print(l)
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
 
