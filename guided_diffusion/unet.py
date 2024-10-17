@@ -739,15 +739,11 @@ class SliceAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, current_slice, adjacent_slices):
-        """
-        Apply multi-head attention across the current slice and neighboring slices.
-        :param current_slice: the current high-res slice (1 slice)
-        :param adjacent_slices: the adjacent slices for attention (multiple slices)
-        :return: attention-weighted combined feature map
-        """
         b, c, h, w = current_slice.shape
-        # Ensure adjacent slices are reduced to a single channel or aggregated appropriately
-        adjacent_slices = adjacent_slices.mean(dim=1)
+
+        # Reshape adjacent_slices without collapsing dimensions
+        adjacent_slices = adjacent_slices.view(b, -1, h, w)  # Flatten across adjacent slices
+
         # Compute Q, K, V for current slice
         query = self.query(current_slice).view(b, c, -1)  # Shape (b, c, hw)
 
