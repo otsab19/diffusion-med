@@ -72,6 +72,11 @@ class BraTSMRI(Dataset):
         lr_slice = self.lr_data[subject_idx, :, slice_idx]
         other_slice = self.other_data[subject_idx, :, slice_idx]
 
+        # Ensure current slices have at least 4 dimensions: [B, C, H, W]
+        hr_slice = hr_slice.unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
+        lr_slice = lr_slice.unsqueeze(0).unsqueeze(0)
+        other_slice = other_slice.unsqueeze(0).unsqueeze(0)
+
         # Ensure these have proper shapes before returning
         print(f"Shape of fetched HR slice: {hr_slice.shape}")
         print(f"Shape of fetched LR slice: {lr_slice.shape}")
