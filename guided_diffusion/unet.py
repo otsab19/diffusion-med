@@ -696,12 +696,21 @@ class UNetModel(nn.Module):
         h3 = other.type(self.dtype)
         print("adj slices::", hr_adj_slices.shape, lr_adj_slices.shape, other_adj_slices.shape)
         # Apply slice attention on adjacent slices if they are provided
+        # Concatenate current slices with adjacent slices before applying attention
         if hr_adj_slices is not None:
-            h1 = self.slice_attention(hr_adj_slices)
+            # Concatenate the current h1 with adjacent slices along the slice dimension
+            h1_with_adj = th.cat([h1.unsqueeze(1), hr_adj_slices], dim=1)
+            h1 = self.slice_attention(h1_with_adj)
+
         if lr_adj_slices is not None:
-            h2 = self.slice_attention(lr_adj_slices)
+            # Concatenate the current h2 with adjacent slices along the slice dimension
+            h2_with_adj = th.cat([h2.unsqueeze(1), lr_adj_slices], dim=1)
+            h2 = self.slice_attention(h2_with_adj)
+
         if other_adj_slices is not None:
-            h3 = self.slice_attention(other_adj_slices)
+            # Concatenate the current h3 with adjacent slices along the slice dimension
+            h3_with_adj = th.cat([h3.unsqueeze(1), other_adj_slices], dim=1)
+            h3 = self.slice_attention(h3_with_adj)
 
         # Encoder path
         for idx in range(len(self.input_blocks)):
@@ -739,7 +748,7 @@ class UNetModel(nn.Module):
 
 class SliceAttention(nn.Module):
     """
-    Custom attention module that computes attention over adjacent slices.
+    Custom attention module that computes attention over adjacent slices, including the current slice.
     """
 
     def __init__(self, channels, num_slices=4):
@@ -756,7 +765,7 @@ class SliceAttention(nn.Module):
         # h shape: [N, S, C, H, W] where S is the number of adjacent slices
         N, S, C, H, W = h.shape
 
-        # Reshape to treat slices as batch elements
+        # Reshape to treat slices as batch elements (flatten S)
         h = h.view(N * S, C, H, W)  # [N * S, C, H, W]
 
         # Project to Q, K, V
@@ -771,13 +780,16 @@ class SliceAttention(nn.Module):
         # Reshape output back to [N, S, C, H, W]
         attn_output = attn_output.view(N, S, C, H, W)
 
-        # Combine slices using mean across the slice dimension (S)
-        h_combined = attn_output.mean(dim=1)  # Combine to [N, C, H, W]
+        # Instead of reducing by taking the mean, return the full shape
+        # Apply output projection to each slice individually
+        h_combined = self.out_proj(attn_output.view(N * S, C, H, W))  # [N * S, C, H, W]
 
-        # Apply output projection
-        h_combined = self.out_proj(h_combined)  # Final output [N, C, H, W]
+        # Reshape back to [N, S, C, H, W]
+        h_combined = h_combined.view(N, S, C, H, W)
 
-        return h_combined
+        # You can return `h_combined` without reduction, aligning with the previous implementation
+        return h_combined[:, 0, :, :, :]  # Return only the current slice if needed
+
 
 
 
