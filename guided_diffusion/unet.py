@@ -797,18 +797,18 @@ class SuperResModel(UNetModel):
 
 
 # Ensure x has a channel dimension [B, C, H, W]
-        if len(x.shape) == 3:  # Assuming x is [B, H, W]
-            x = x.unsqueeze(1)  # Add a channel dimension -> [B, 1, H, W]
-
-        # Ensure adjacent slices have the correct shape
-        if len(hr_adj_slices.shape) == 5:  # [B, num_adj_slices, C, H, W]
-            hr_adj_slices = hr_adj_slices.squeeze(2)  # Adjust to [B, C, H, W] if needed
-
-        if len(lr_adj_slices.shape) == 5:
-            lr_adj_slices = lr_adj_slices.squeeze(2)
-
-        if len(other_adj_slices.shape) == 5:
-            other_adj_slices = other_adj_slices.squeeze(2)
+#         if len(x.shape) == 3:  # Assuming x is [B, H, W]
+#             x = x.unsqueeze(1)  # Add a channel dimension -> [B, 1, H, W]
+#
+#         # Ensure adjacent slices have the correct shape
+#         if len(hr_adj_slices.shape) == 5:  # [B, num_adj_slices, C, H, W]
+#             hr_adj_slices = hr_adj_slices.squeeze(2)  # Adjust to [B, C, H, W] if needed
+#
+#         if len(lr_adj_slices.shape) == 5:
+#             lr_adj_slices = lr_adj_slices.squeeze(2)
+#
+#         if len(other_adj_slices.shape) == 5:
+#             other_adj_slices = other_adj_slices.squeeze(2)
 
         # Apply attention across the current and adjacent slices
         attended_hr = self.attention_block(x, hr_adj_slices)
