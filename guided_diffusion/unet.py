@@ -788,15 +788,14 @@ class SuperResModel(UNetModel):
         lr_adj_slices = kwargs.get('lr_adj_slices')
         other_adj_slices = kwargs.get('other_adj_slices')
 
-        # Apply attention across the current and adjacent slices
-        attended_hr = self.attention_block(x, hr_adj_slices)
-        attended_lr = self.attention_block(kwargs['low_res'], lr_adj_slices)
-        attended_other = self.attention_block(kwargs['other'], other_adj_slices)
-
         print(f"Shape of current slice: {x.shape}")
         print(f"Shape of adjacent HR slices: {hr_adj_slices.shape}")
         print(f"Shape of adjacent LR slices: {lr_adj_slices.shape}")
         print(f"Shape of adjacent Other slices: {other_adj_slices.shape}")
+        # Apply attention across the current and adjacent slices
+        attended_hr = self.attention_block(x, hr_adj_slices)
+        attended_lr = self.attention_block(kwargs['low_res'], lr_adj_slices)
+        attended_other = self.attention_block(kwargs['other'], other_adj_slices)
 
 # Pass the attended slices into the UNet model for further processing
         return super().forward(attended_hr, timesteps, low_res=attended_lr, other=attended_other)
