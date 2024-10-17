@@ -203,7 +203,7 @@ class SE_Attention_Feedback(nn.Module):
 
         # Perform global average pooling to reduce the spatial dimensions
         y = self.avg_pool(x).view(b, c)  # Result is [batch_size, channels]
-
+        print(f"Shape after avg_pool and view: {y.shape}")  # Log shape after pooling and reshaping
         # Pass through the SE block
         y = self.se(y)  # Result is still [batch_size, channels]
         print(f"x shape after SE attention: {y.shape}")
