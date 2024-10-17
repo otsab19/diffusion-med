@@ -180,6 +180,33 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
         return x
 
 
+class SE_Attention_Feedback(nn.Module):
+    def __init__(self, input_channels, reduction=8):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # This reduces the spatial dimensions to 1x1
+        self.se = nn.Sequential(
+            nn.Linear(input_channels, input_channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(input_channels // reduction, input_channels, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()  # x is expected to be [batch_size, channels, height, width]
+
+        # Average pooling to reduce spatial dimensions (HxW) to 1x1
+        y = self.avg_pool(x).view(b, c)  # y is now of shape [batch_size, channels]
+
+        # Passing through the fully connected layers
+        y = self.se(y)  # Now y is [batch_size, channels]
+
+        # Reshaping it back to the original shape for element-wise multiplication
+        y = y.view(b, c, 1, 1)  # [batch_size, channels, 1, 1]
+
+        # Multiply the attention weights element-wise with the input tensor
+        return x * y.expand_as(x)  # Broadcasting y to match the shape of x
+
+
 class SE_Attention(nn.Module):
     def __init__(self, channel=512, reduction=16):
         super().__init__()
@@ -595,7 +622,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
-        self.attention_feedback = SE_Attention(channel=int(288 / 2), reduction=8)
+        self.attention_feedback = SE_Attention_Feedback(channel=int(288 / 2), reduction=8)
         # self.attention_feedback = AttentionBlock(ch,
         #                                          use_checkpoint=use_checkpoint,
         #                                          num_heads=num_heads,
