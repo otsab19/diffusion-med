@@ -67,20 +67,23 @@ class EfficientAttentionBlock(nn.Module):
         downsampled_x = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
 
         # Flatten for attention mechanism
-        b, c, *spatial = downsampled_x.shape
-        downsampled_x = downsampled_x.reshape(b, c, -1)
+        b, c, dh, dw = downsampled_x.shape  # Capture the downsampled height (dh) and width (dw)
+        downsampled_x = downsampled_x.reshape(b, c, -1)  # Reshape to flattened shape for attention
 
         # Apply normalization and attention
         qkv = self.qkv(self.norm(downsampled_x))
         h = self.attention(qkv)
         h = self.proj_out(h)
 
-        # Reshape back and upsample to original size
-        h = h.reshape(b, c, *spatial)
-        h = F.interpolate(h, size=(h, w), mode='nearest')
+        # Reshape back to the downsampled size
+        h = h.reshape(b, c, dh, dw)
 
-        # Residual connection
-        return (x + h)
+        # Upsample back to the original size
+        h = F.interpolate(h, size=(h, w), mode='nearest')  # Use the original height and width
+
+        # Add residual connection
+        return x + h  # The residual connection remains the same
+
 
 
 class LinearAttentionBlock(nn.Module):
