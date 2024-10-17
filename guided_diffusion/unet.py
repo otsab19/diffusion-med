@@ -595,11 +595,11 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
-        self.attention_feedback = EfficientAttentionBlock(ch,
+        self.attention_feedback = LinearAttentionBlock(ch,
                                                  use_checkpoint=use_checkpoint,
-                                                 num_heads=num_heads,
-                                                 num_head_channels=num_head_channels,
-                                                 use_new_attention_order=use_new_attention_order
+                                                 # num_heads=num_heads,
+                                                 # num_head_channels=num_head_channels,
+                                                 # use_new_attention_order=use_new_attention_order
                                                        )  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
