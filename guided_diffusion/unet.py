@@ -744,7 +744,7 @@ class SliceAttention(nn.Module):
 
     def __init__(self, channels, num_slices=5):
         super(SliceAttention, self).__init__()
-        self.channels = channels
+        self.channels = num_slices
         print(f"Channels in SliceAttention: {channels}")
         self.num_slices = num_slices
         self.num_heads = 1 if channels == 1 else 4
