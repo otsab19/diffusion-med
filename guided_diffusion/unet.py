@@ -627,7 +627,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
-        self.attention_feedback = SE_Attention_Feedback(input_channels=int(ch / 2), reduction=8)
+        self.attention_feedback = SE_Attention_Feedback(channel=int(ch / 2), reduction=8)
         # self.attention_feedback = AttentionBlock(ch,
         #                                          use_checkpoint=use_checkpoint,
         #                                          num_heads=num_heads,
