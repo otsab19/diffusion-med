@@ -694,7 +694,7 @@ class UNetModel(nn.Module):
         # print(th.count_nonzero(other))
         # has_other = (th.count_nonzero(other) > 0)
         h3 = other.type(self.dtype)
-        print("h1,h2,h3::", h1.shape, h2.shape, h3.shape)
+        print("adj slices::", hr_adj_slices.shape, lr_adj_slices.shape, other_adj_slices.shape)
         # Apply slice attention on adjacent slices if they are provided
         if hr_adj_slices is not None:
             h1 = self.slice_attention(hr_adj_slices)
