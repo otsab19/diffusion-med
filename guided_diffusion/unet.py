@@ -202,7 +202,7 @@ class SE_Attention_Feedback(nn.Module):
         b, c, _, _ = x.size()  # [batch_size, channels, height, width]
 
         # Perform global average pooling to reduce the spatial dimensions
-        y = self.avg_pool(x).view(b, c)  # Result is [batch_size, channels]
+        y = self.avg_pool(x).view(b, -1) # Result is [batch_size, channels]
         print(f"Shape before first Linear layer: {y.shape}, expected: ({b}, {c})")        # Pass through the SE block
         y = self.se(y)  # Result is still [batch_size, channels]
         print(f"x shape after SE attention: {y.shape}")
@@ -630,7 +630,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
-        self.attention_feedback = SE_Attention_Feedback(input_channels=int(ch / 2), reduction=4)
+        self.attention_feedback = SE_Attention_Feedback(input_channels=int(ch / 2), reduction=8)
         # self.attention_feedback = AttentionBlock(ch,
         #                                          use_checkpoint=use_checkpoint,
         #                                          num_heads=num_heads,
