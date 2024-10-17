@@ -746,7 +746,8 @@ class SliceAttention(nn.Module):
         :return: attention-weighted combined feature map
         """
         b, c, h, w = current_slice.shape
-
+        # Ensure adjacent slices are reduced to a single channel or aggregated appropriately
+        adjacent_slices = adjacent_slices.mean(dim=1)
         # Compute Q, K, V for current slice
         query = self.query(current_slice).view(b, c, -1)  # Shape (b, c, hw)
 
