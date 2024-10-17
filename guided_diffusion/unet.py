@@ -745,20 +745,19 @@ class SliceAttention(nn.Module):
     def __init__(self, channels, num_slices=4):
         super(SliceAttention, self).__init__()
         self.channels = channels
-        print(f"Channels in SliceAttention: {channels}")
         self.num_slices = num_slices
-        self.num_heads = 1 if channels == 1 else 4
+        self.num_heads = 1 if channels == 1 else 4  # Adjust heads based on channels
         self.qkv_proj = nn.Conv2d(channels, channels * 3, kernel_size=1)
         self.attention = nn.MultiheadAttention(channels, num_heads=self.num_heads)
         self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
 
     def forward(self, h):
         print("Input to SliceAttention (H)::", h.shape)
-        # h shape: [N, S, C, H, W] where S is the number of adjacent slices.
+        # h shape: [N, S, C, H, W] where S is the number of adjacent slices
         N, S, C, H, W = h.shape
 
-        # Reshape the input to treat the slices as batch elements
-        h = h.view(N * S, C, H, W)  # Merge slices into the batch dimension [N * S, C, H, W]
+        # Reshape to treat slices as batch elements
+        h = h.view(N * S, C, H, W)  # [N * S, C, H, W]
 
         # Project to Q, K, V
         qkv = self.qkv_proj(h)  # [N * S, 3C, H, W]
@@ -769,16 +768,17 @@ class SliceAttention(nn.Module):
         # Apply attention
         attn_output, _ = self.attention(q, k, v)  # [N * S, H*W, C]
 
-        # Reshape the output back to [N, S, C, H, W]
+        # Reshape output back to [N, S, C, H, W]
         attn_output = attn_output.view(N, S, C, H, W)
 
-        # Combine the slices using mean across the slice dimension (S)
-        h_combined = attn_output.mean(dim=1)  # Combine slices to [N, C, H, W]
+        # Combine slices using mean across the slice dimension (S)
+        h_combined = attn_output.mean(dim=1)  # Combine to [N, C, H, W]
 
-        # Apply the output projection
+        # Apply output projection
         h_combined = self.out_proj(h_combined)  # Final output [N, C, H, W]
 
         return h_combined
+
 
 
 class SuperResModel(UNetModel):
