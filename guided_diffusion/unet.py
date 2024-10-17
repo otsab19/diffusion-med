@@ -741,13 +741,13 @@ class SliceAttention(nn.Module):
     def forward(self, current_slice, adjacent_slices):
         b, c, h, w = current_slice.shape
 
-        # Reshape adjacent_slices without collapsing dimensions
-        adjacent_slices = adjacent_slices.view(b, -1, h, w)  # Flatten across adjacent slices
+        # Flatten adjacent slices into the channel dimension if needed
+        adjacent_slices = adjacent_slices.view(b, -1, h, w)
 
         # Compute Q, K, V for current slice
         query = self.query(current_slice).view(b, c, -1)  # Shape (b, c, hw)
 
-        # Compute K, V for adjacent slices (stacked adjacent slices)
+        # Compute K, V for adjacent slices (flattened)
         key = self.key(adjacent_slices).view(b, c, -1)
         value = self.value(adjacent_slices).view(b, c, -1)
 
@@ -761,8 +761,8 @@ class SliceAttention(nn.Module):
         # Reshape back to (B, C, H, W) and combine with current slice
         attended_slice = weighted_sum.view(b, c, h, w)
 
-        # Return the attended slice combined with the current slice
         return current_slice + attended_slice
+
 
 
 
