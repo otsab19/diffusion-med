@@ -778,27 +778,42 @@ class SuperResModel(UNetModel):
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         # Define the custom slice attention module
-        # self.slice_attention = SliceAttention(channels=self.in_channels)
         self.attention_block = SliceAttention(channels=in_channels)
         print(image_size)
 
     def forward(self, x, timesteps, **kwargs):
+        """
+        Forward method that processes the current slice and applies attention
+        across adjacent slices, ensuring the output aligns with UNetModel's forward structure.
+        """
         # Fetch adjacent slices from kwargs
         hr_adj_slices = kwargs.get('hr_adj_slices')
         lr_adj_slices = kwargs.get('lr_adj_slices')
         other_adj_slices = kwargs.get('other_adj_slices')
 
-        print(f"Shape of current slice: {x.shape}")
-        print(f"Shape of adjacent HR slices: {hr_adj_slices.shape}")
-        print(f"Shape of adjacent LR slices: {lr_adj_slices.shape}")
-        print(f"Shape of adjacent Other slices: {other_adj_slices.shape}")
+        # Ensure x has a channel dimension [B, C, H, W]
+        if len(x.shape) == 3:  # Assuming x is [B, H, W]
+            x = x.unsqueeze(1)  # Add a channel dimension -> [B, 1, H, W]
+
+        # Ensure adjacent slices have the correct shape
+        if len(hr_adj_slices.shape) == 5:  # [B, num_adj_slices, C, H, W]
+            hr_adj_slices = hr_adj_slices.squeeze(2)  # Adjust to [B, C, H, W] if needed
+
+        if len(lr_adj_slices.shape) == 5:
+            lr_adj_slices = lr_adj_slices.squeeze(2)
+
+        if len(other_adj_slices.shape) == 5:
+            other_adj_slices = other_adj_slices.squeeze(2)
+
         # Apply attention across the current and adjacent slices
         attended_hr = self.attention_block(x, hr_adj_slices)
         attended_lr = self.attention_block(kwargs['low_res'], lr_adj_slices)
         attended_other = self.attention_block(kwargs['other'], other_adj_slices)
 
-# Pass the attended slices into the UNet model for further processing
+        # Pass the attended slices into the UNet model for further processing
+        # We need to ensure that the return signature matches the base UNet model
         return super().forward(attended_hr, timesteps, low_res=attended_lr, other=attended_other)
+
 
 
 class EncoderUNetModel(nn.Module):
