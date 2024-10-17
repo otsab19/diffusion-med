@@ -20,6 +20,7 @@ from .nn import (
 
 import copy
 
+
 class EfficientAttentionBlock(nn.Module):
     """
     A more memory-efficient attention block using downsampling before and
@@ -71,10 +72,12 @@ class EfficientAttentionBlock(nn.Module):
 
         # Reshape back and upsample to original size
         h = h.reshape(b, c, *spatial)
+
+        # Properly upsample to the original height and width dimensions
         h = F.interpolate(h, size=(h, w), mode='nearest')
 
         # Residual connection
-        return (x + h)
+        return x + h
 
 class LinearAttentionBlock(nn.Module):
     """
@@ -585,11 +588,12 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
-        self.attention_feedback = EfficientAttentionBlock(ch,
+        self.attention_feedback = LinearAttentionBlock(ch,
                                                  use_checkpoint=use_checkpoint,
-                                                 num_heads=num_heads,
-                                                 num_head_channels=num_head_channels,
-                                                 use_new_attention_order=use_new_attention_order)  # Add an attention block for feedback
+                                                 # num_heads=num_heads,
+                                                 # num_head_channels=num_head_channels,
+                                                 # use_new_attention_order=use_new_attention_order
+                                                       )  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
