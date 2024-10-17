@@ -183,27 +183,30 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 class SE_Attention_Feedback(nn.Module):
     def __init__(self, input_channels, reduction=8):
         super().__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # This reduces the spatial dimensions to 1x1
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # Reduce spatial dimensions to 1x1
+        reduced_channels = input_channels // reduction
+
+        # Adjust the Linear layers according to the input size
         self.se = nn.Sequential(
-            nn.Linear(input_channels, input_channels // reduction, bias=False),
+            nn.Linear(input_channels, reduced_channels, bias=False),  # [batch_size, input_channels] -> [batch_size, reduced_channels]
             nn.ReLU(inplace=True),
-            nn.Linear(input_channels // reduction, input_channels, bias=False),
+            nn.Linear(reduced_channels, input_channels, bias=False),  # [batch_size, reduced_channels] -> [batch_size, input_channels]
             nn.Sigmoid()
         )
 
     def forward(self, x):
-        b, c, _, _ = x.size()  # x is expected to be [batch_size, channels, height, width]
+        b, c, _, _ = x.size()  # Expecting input [batch_size, channels, height, width]
 
-        # Average pooling to reduce spatial dimensions (HxW) to 1x1
-        y = self.avg_pool(x).view(b, c)  # y is now of shape [batch_size, channels]
+        # Apply average pooling to reduce the spatial dimensions to [batch_size, channels]
+        y = self.avg_pool(x).view(b, c)  # Now y is [batch_size, channels]
 
-        # Passing through the fully connected layers
+        # Pass through the fully connected layers
         y = self.se(y)  # Now y is [batch_size, channels]
 
-        # Reshaping it back to the original shape for element-wise multiplication
-        y = y.view(b, c, 1, 1)  # [batch_size, channels, 1, 1]
+        # Reshape it back to [batch_size, channels, 1, 1] for broadcasting
+        y = y.view(b, c, 1, 1)
 
-        # Multiply the attention weights element-wise with the input tensor
+        # Multiply the attention weights element-wise with the input
         return x * y.expand_as(x)  # Broadcasting y to match the shape of x
 
 
