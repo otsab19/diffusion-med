@@ -205,8 +205,11 @@ class SE_Attention_Feedback(nn.Module):
 
     def forward(self, x):
         b, c, _, _ = x.size()
+        print(f"Input shape to SE block: {x.shape}")
         y = self.avg_pool(x).view(b, c)
+        print(f"Shape after avg_pool and view: {y.shape}")
         y = self.se(y).view(b, c, 1, 1)
+        print(f"Shape after SE linear layers: {y.shape}")
         return x * y.expand_as(x)
 
 
