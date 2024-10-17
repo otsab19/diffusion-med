@@ -753,6 +753,7 @@ class SliceAttention(nn.Module):
         self.out_proj = nn.Conv2d(channels, channels, kernel_size=1)
 
     def forward(self, h):
+        print("H::", h.shape)
         # h shape: [N, C, S, H, W] where S is the number of adjacent slices
         N, C, S, H, W = h.shape
 
