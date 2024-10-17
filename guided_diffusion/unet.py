@@ -196,13 +196,13 @@ class SE_Attention_Feedback(nn.Module):
 
     def forward(self, x):
         b, c, _, _ = x.size()  # Expecting input [batch_size, channels, height, width]
-
+        print(x.shape)
         # Apply average pooling to reduce the spatial dimensions to [batch_size, channels]
         y = self.avg_pool(x).view(b, c)  # Now y is [batch_size, channels]
-
+        print(x.shape)
         # Pass through the fully connected layers
         y = self.se(y)  # Now y is [batch_size, channels]
-
+        print(x.shape)
         # Reshape it back to [batch_size, channels, 1, 1] for broadcasting
         y = y.view(b, c, 1, 1)
 
