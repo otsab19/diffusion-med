@@ -68,35 +68,31 @@ class BraTSMRI(Dataset):
         Fetch the current slice and adjacent slices for a given subject and slice index.
         """
         # Fetch the current slice for HR, LR, and Other
-        hr_slice = self.hr_data[subject_idx, :, slice_idx]
-        lr_slice = self.lr_data[subject_idx, :, slice_idx]
-        other_slice = self.other_data[subject_idx, :, slice_idx]
+        hr_slice = self.hr_data[subject_idx * self.num_slices + slice_idx]
+        lr_slice = self.lr_data[subject_idx * self.num_slices + slice_idx]
+        other_slice = self.other_data[subject_idx * self.num_slices + slice_idx]
 
-        # Ensure current slices have at least 4 dimensions: [B, C, H, W]
-        hr_slice = hr_slice.unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
+        # Add batch and channel dimensions (unsqueeze)
+        hr_slice = hr_slice.unsqueeze(0).unsqueeze(0)
         lr_slice = lr_slice.unsqueeze(0).unsqueeze(0)
         other_slice = other_slice.unsqueeze(0).unsqueeze(0)
 
-        # Ensure these have proper shapes before returning
-        print(f"Shape of fetched HR slice: {hr_slice.shape}")
-        print(f"Shape of fetched LR slice: {lr_slice.shape}")
-        print(f"Shape of fetched Other slice: {other_slice.shape}")
+        print(f"Shape of current slice (x): {hr_slice.shape}")
 
-        # Get adjacent slices range, ensure boundaries
+        # Get adjacent slices range and ensure boundaries
         start_idx = max(0, slice_idx - self.num_adjacent_slices // 2)
         end_idx = min(self.num_slices, slice_idx + self.num_adjacent_slices // 2 + 1)
 
-        # Fetch adjacent slices for HR, LR, and Other
-        hr_adj_slices = self.hr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
-        lr_adj_slices = self.lr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
-        other_adj_slices = self.other_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
+        # Fetch adjacent slices
+        hr_adj_slices = self.hr_data[subject_idx * self.num_slices + start_idx : subject_idx * self.num_slices + end_idx]
+        lr_adj_slices = self.lr_data[subject_idx * self.num_slices + start_idx : subject_idx * self.num_slices + end_idx]
+        other_adj_slices = self.other_data[subject_idx * self.num_slices + start_idx : subject_idx * self.num_slices + end_idx]
 
-        # Stack adjacent slices to ensure correct shape (N, C, S, H, W)
-        hr_adj_slices = torch.stack([hr_adj_slices], dim=0)
-        lr_adj_slices = torch.stack([lr_adj_slices], dim=0)
-        other_adj_slices = torch.stack([other_adj_slices], dim=0)
+        # Check if adjacent slices are fetched correctly
+        print(f"Shape of adjacent HR slices: {hr_adj_slices.shape}")
 
-        return hr_slice, lr_slice, other_slice, hr_adj_slices, lr_adj_slices, other_adj_slices
+        # Return all slices
+        return hr_slice, lr_slice, other_slice, hr_adj_slices.unsqueeze(1), lr_adj_slices.unsqueeze(1), other_adj_slices.unsqueeze(1)
 
     def __getitem__(self, index):
         if isinstance(index, (list, np.ndarray)):
