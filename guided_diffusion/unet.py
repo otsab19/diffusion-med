@@ -844,6 +844,7 @@ class UNetModel(nn.Module):
             if feedback is not None:
                 # Use attention over feedback to choose important features
                 feedback = self.attention_feedback(feedback)
+                feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
                 h1 = h1 + feedback
                 h2 = h2 + feedback
                 h3 = h3 + feedback
