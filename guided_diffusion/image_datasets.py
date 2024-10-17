@@ -79,6 +79,12 @@ class BraTSMRI(Dataset):
         hr_adj_slices = self.hr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
         lr_adj_slices = self.lr_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
         other_adj_slices = self.other_data[subject_idx * self.num_slices + start_idx:subject_idx * self.num_slices + end_idx]
+        # Ensure correct shape: [N, C, S, H, W] -> add channel dimension
+        hr_adj_slices = hr_adj_slices.unsqueeze(1)  # Adds channel dimension
+        lr_adj_slices = lr_adj_slices.unsqueeze(1)
+        other_adj_slices = other_adj_slices.unsqueeze(1)
+
+        return hr_slice.unsqueeze(0), lr_slice.unsqueeze(0), other_slice.unsqueeze(0), hr_adj_slices, lr_adj_slices, other_adj_slices
 
         # Stack adjacent slices to ensure correct shape (N, C, S, H, W)
         hr_adj_slices = torch.stack([hr_adj_slices], dim=0)
