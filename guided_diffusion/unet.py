@@ -181,35 +181,32 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 
 
 class SE_Attention_Feedback(nn.Module):
-    def __init__(self, input_channels=48, reduction=8):
-        super(SE_Attention_Feedback, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # Pool over spatial dimensions to get [batch_size, channels, 1, 1]
+    def __init__(self, channel=512, reduction=16):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.se = nn.Sequential(nn.Linear(channel, channel // reduction, bias=False),
+                                nn.ReLU(inplace=True),
+                                nn.Linear(channel // reduction, channel, bias=False),
+                                nn.Sigmoid())
 
-        # Reduce the number of channels by the reduction factor
-        reduced_channels = input_channels // reduction
-
-        # Define the SE block with the correct linear layers
-        self.se = nn.Sequential(
-            nn.Linear(input_channels, reduced_channels, bias=False),  # Reduce dimensions
-            nn.ReLU(inplace=True),
-            nn.Linear(reduced_channels, input_channels, bias=False),  # Restore original dimensions
-            nn.Sigmoid()
-        )
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal_(m.weight, mode='fan_out')
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                init.constant_(m.weight, 1)
+                init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                init.normal_(m.weight, std=0.001)
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
 
     def forward(self, x):
-        print(f"x shape before SE attention: {x.shape}")
-        # Get the shape of the input tensor
-        b, c, _, _ = x.size()  # [batch_size, channels, height, width]
-
-        # Perform global average pooling to reduce the spatial dimensions
-        y = self.avg_pool(x).view(b, -1) # Result is [batch_size, channels]
-        print(f"Shape before first Linear layer: {y.shape}, expected: ({b}, {c})")        # Pass through the SE block
-        y = self.se(y)  # Result is still [batch_size, channels]
-        print(f"x shape after SE attention: {y.shape}")
-        # Reshape back to [batch_size, channels, 1, 1] for broadcasting
-        y = y.view(b, c, 1, 1)
-
-        # Multiply with the original input (element-wise)
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.se(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
 
 
