@@ -207,24 +207,9 @@ class SE_Attention_Feedback(nn.Module):
         b, c, _, _ = x.size()
         print(f"Input shape to SE block: {x.shape}")
         y = self.avg_pool(x).view(b, c)
-        # Linear transformation from [b, 96] -> [b, 12]
-        y = self.se[0](y)  # First linear transformation
-        print(f"Shape after first linear (96 -> 12): {y.shape}")
-
-        # ReLU activation
-        y = self.se[1](y)
-
-        # Linear transformation from [b, 12] -> [b, 96]
-        y = self.se[2](y)
-        print(f"Shape after second linear (12 -> 96): {y.shape}")
-
-        # Sigmoid activation
-        y = self.se[3](y)
-
-        # Reshape and apply the attention
-        y = y.view(b, c, 1, 1)
-        print(f"Shape after reshaping to: {y.shape}")
-
+        print(f"Shape after avg_pool and view: {y.shape}")
+        y = self.se(y).view(b, c, 1, 1)
+        print(f"Shape after SE linear layers: {y.shape}")
         return x * y.expand_as(x)
 
 
