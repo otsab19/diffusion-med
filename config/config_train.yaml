@@ -1,5 +1,5 @@
 attention_resolutions: 32,16,8
-batch_size: 2
+batch_size: 1
 data_dir: ''
 diffusion_steps: 1000
 dropout: 0.0
