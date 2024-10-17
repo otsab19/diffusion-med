@@ -146,3 +146,5 @@ dependencies:
     - filelock==3.12.0
     - lxml==4.9.2
     - pycryptodomex==3.18.0
+    - matplotlib==3.4.3
+    - ipykernel
