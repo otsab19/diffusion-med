@@ -207,9 +207,24 @@ class SE_Attention_Feedback(nn.Module):
         b, c, _, _ = x.size()
         print(f"Input shape to SE block: {x.shape}")
         y = self.avg_pool(x).view(b, c)
-        print(f"Shape after avg_pool and view: {y.shape}")
-        y = self.se(y).view(b, c, 1, 1)
-        print(f"Shape after SE linear layers: {y.shape}")
+        # Linear transformation from [b, 96] -> [b, 12]
+        y = self.se[0](y)  # First linear transformation
+        print(f"Shape after first linear (96 -> 12): {y.shape}")
+
+        # ReLU activation
+        y = self.se[1](y)
+
+        # Linear transformation from [b, 12] -> [b, 96]
+        y = self.se[2](y)
+        print(f"Shape after second linear (12 -> 96): {y.shape}")
+
+        # Sigmoid activation
+        y = self.se[3](y)
+
+        # Reshape and apply the attention
+        y = y.view(b, c, 1, 1)
+        print(f"Shape after reshaping to: {y.shape}")
+
         return x * y.expand_as(x)
 
 
@@ -630,7 +645,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
-        self.attention_feedback = SE_Attention_Feedback(channel=int(ch / 2), reduction=8)
+        self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
         # self.attention_feedback = AttentionBlock(ch,
         #                                          use_checkpoint=use_checkpoint,
         #                                          num_heads=num_heads,
