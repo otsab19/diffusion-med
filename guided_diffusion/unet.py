@@ -38,13 +38,18 @@ class EfficientAttentionBlock(nn.Module):
     ):
         super().__init__()
         self.channels = channels
-        self.num_heads = num_heads if num_head_channels == -1 else channels // num_head_channels
+        if num_head_channels == -1:
+            self.num_heads = num_heads
+        else:
+            assert (
+                    channels % num_head_channels == 0
+            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            self.num_heads = channels // num_head_channels
         self.downsample_factor = downsample_factor
         self.use_checkpoint = use_checkpoint
         self.norm = normalization(channels)
         self.qkv = conv_nd(1, channels, channels * 3, 1)
 
-        # Choose between legacy and new attention
         if use_new_attention_order:
             self.attention = QKVAttention(self.num_heads)
         else:
@@ -59,7 +64,7 @@ class EfficientAttentionBlock(nn.Module):
         b, c, h, w = x.shape
 
         # Downsample spatial dimensions before applying attention
-        downsampled_x = F.interpolate(x, scale_factor=1.0/self.downsample_factor, mode='nearest')
+        downsampled_x = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
 
         # Flatten for attention mechanism
         b, c, *spatial = downsampled_x.shape
@@ -72,12 +77,11 @@ class EfficientAttentionBlock(nn.Module):
 
         # Reshape back and upsample to original size
         h = h.reshape(b, c, *spatial)
-
-        # Properly upsample to the original height and width dimensions
         h = F.interpolate(h, size=(h, w), mode='nearest')
 
         # Residual connection
-        return x + h
+        return (x + h)
+
 
 class LinearAttentionBlock(nn.Module):
     """
@@ -588,11 +592,11 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
 
-        self.attention_feedback = LinearAttentionBlock(ch,
+        self.attention_feedback = EfficientAttentionBlock(ch,
                                                  use_checkpoint=use_checkpoint,
-                                                 # num_heads=num_heads,
-                                                 # num_head_channels=num_head_channels,
-                                                 # use_new_attention_order=use_new_attention_order
+                                                 num_heads=num_heads,
+                                                 num_head_channels=num_head_channels,
+                                                 use_new_attention_order=use_new_attention_order
                                                        )  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
