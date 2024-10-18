@@ -87,14 +87,14 @@ class EfficientAttention(nn.Module):
     # else:
     #     return function(*args)
 
-    def forward(self, x):
+    def _forward(self, x):
         # Downsample the input for efficient attention
         b, c, h, w = x.size()
         x_downsampled = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
 
         # Flatten the downsampled input for attention
         b, c, h_ds, w_ds = x_downsampled.shape
-        x_flattened = x_downsampled.view(b, c, -1).permute(0, 2, 1)  # (B, HW, C)
+        x_flattened = x_downsampled.view(b, c, h_ds * w_ds).permute(0, 2, 1)  # (B, HW, C)
 
         # Apply LayerNorm
         x_norm = self.norm(x_flattened)
@@ -118,6 +118,7 @@ class EfficientAttention(nn.Module):
 
         # Return the residual connection (input + attention output)
         return x + attn_output
+
 
 
 class LinearAttentionBlock(nn.Module):
