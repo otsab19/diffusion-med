@@ -45,11 +45,16 @@ class LinformerAttention(nn.Module):
     def forward(self, x):
         # Reshape input for Linformer
         b, c, h, w = x.shape
-        # Downsample the input to reduce sequence length
-        x = self.downsample(x)
+        seq_length = h * w  # Dynamically calculate sequence length
         x = x.view(b, c, -1).transpose(1, 2)  # Shape: (b, seq_len, channels)
-        x = self.linformer(x)  # Apply Linformer attention
-        x = x.transpose(1, 2).view(b, c, h, w)  # Reshape back to original
+
+        # Apply Linformer attention
+        x = self.linformer(x)
+
+        # Reshape the tensor back to its original shape using sqrt of the sequence length
+        new_h = int(math.sqrt(x.size(1)))
+        x = x.transpose(1, 2).view(b, c, new_h, new_h)  # Reshape based on new height and width
+
         return x
 
 class EfficientAttentionBlock(nn.Module):
