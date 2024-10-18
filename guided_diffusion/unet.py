@@ -59,65 +59,51 @@ class LinformerAttention(nn.Module):
 
 
 class EfficientAttention(nn.Module):
-    def __init__(self, channels, num_heads=1, downsample_factor=2, use_checkpoint=False):
+    def __init__(self, channels, num_heads=4, downsample_factor=2):
         super().__init__()
         self.channels = channels
         self.num_heads = num_heads
         self.downsample_factor = downsample_factor
-        self.use_checkpoint = use_checkpoint
+
+        # Layer normalization
         self.norm = nn.LayerNorm(channels)
 
-        # Linear projections for query, key, and value
+        # QKV linear projections
         self.qkv_proj = nn.Linear(channels, channels * 3)
 
-        # Attention layer
+        # Multi-head attention
         self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
 
         # Output projection
         self.out_proj = nn.Linear(channels, channels)
 
-    # def forward(self, x):
-    #     return self._checkpoint(self._forward, x)
-
-    def _checkpoint(self, function, *args):
-        """Apply checkpointing to save memory if required."""
-
-    # if self.use_checkpoint:
-    #     return torch.utils.checkpoint.checkpoint(function, *args)
-    # else:
-    #     return function(*args)
-
     def forward(self, x):
-        # Downsample the input for efficient attention
-        b, c, h, w = x.size()
-        x_downsampled = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
+        # x is expected to be 4D (batch, channels, height, width)
+        b, c, h, w = x.shape
 
-        # Flatten the downsampled input for attention
-        b, c, h_ds, w_ds = x_downsampled.shape
-        x_flattened = x_downsampled.view(b, c, h_ds * w_ds).permute(0, 2, 1)  # (B, HW, C)
+        # Reshape for attention, preserving batch size
+        # Merge the height and width dimensions into one (spatial dimension becomes a sequence)
+        x = x.view(b, c, h * w).permute(0, 2, 1)  # (batch, seq_len, channels)
 
-        # Apply LayerNorm
-        x_norm = self.norm(x_flattened)
+        # Apply layer normalization
+        x = self.norm(x)
 
-        # Compute QKV and apply attention
-        qkv = self.qkv_proj(x_norm)  # (B, HW, 3C)
-        qkv = qkv.view(b, -1, 3, self.num_heads, c // self.num_heads)  # (B, HW, 3, H, C // H)
-        q, k, v = qkv.unbind(2)  # Split into Q, K, V
+        # Apply the QKV projection to compute query, key, value
+        qkv = self.qkv_proj(x)  # (batch, seq_len, 3 * channels)
 
-        # Apply multihead attention
+        # Split Q, K, V from the projection
+        q, k, v = qkv.chunk(3, dim=-1)
+
+        # Apply multi-head attention (batch_first=True expects (batch, seq_len, embed_dim))
         attn_output, _ = self.attention(q, k, v)
 
-        # Project the output back to the original dimension
+        # Project back to the original channels
         attn_output = self.out_proj(attn_output)
 
-        # Reshape the attention output back to the downsampled spatial size
-        attn_output = attn_output.permute(0, 2, 1).view(b, c, h_ds, w_ds)
+        # Reshape back to the original 4D tensor (batch, channels, height, width)
+        attn_output = attn_output.permute(0, 2, 1).view(b, c, h, w)
 
-        # Upsample back to the original size
-        attn_output = F.interpolate(attn_output, size=(h, w), mode='nearest')
-
-        # Return the residual connection (input + attention output)
-        return x + attn_output
+        return attn_output
 
 
 
