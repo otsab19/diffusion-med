@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 import math
 
+import torch
 from linformer import Linformer
 import numpy as np
 import torch as th
@@ -877,8 +878,10 @@ class UNetModel(nn.Module):
 
             # Incorporate feedback
             if feedback is not None:
+                # Concatenate h1, h2, and h3 along the channel dimension
+                combined_h = torch.cat((h1, h2, h3), dim=1)
                 # Use attention over feedback to choose important features
-                feedback = self.attention_feedback(feedback)
+                feedback = self.attention_feedback(combined_h)
                 # feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
                 # Use 1x1 convolution to match the channels if needed
                 # if feedback.shape[1] != h1.shape[1]:
