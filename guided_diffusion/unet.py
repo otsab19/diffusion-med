@@ -87,7 +87,7 @@ class EfficientAttention(nn.Module):
     # else:
     #     return function(*args)
 
-    def _forward(self, x):
+    def forward(self, x):
         # Downsample the input for efficient attention
         b, c, h, w = x.size()
         x_downsampled = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
