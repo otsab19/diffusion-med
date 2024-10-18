@@ -57,69 +57,67 @@ class LinformerAttention(nn.Module):
 
         return x
 
-class EfficientAttentionBlock(nn.Module):
-    """
-    A more memory-efficient attention block using downsampling before and
-    upsampling after the attention to reduce the size of attention maps.
-    """
 
-    def __init__(
-            self,
-            channels,
-            num_heads=1,
-            num_head_channels=-1,
-            downsample_factor=2,  # Factor to downsample spatial dimensions
-            use_checkpoint=False,
-            use_new_attention_order=False,
-    ):
+class EfficientAttention(nn.Module):
+    def __init__(self, channels, num_heads=1, downsample_factor=2, use_checkpoint=False):
         super().__init__()
         self.channels = channels
-        if num_head_channels == -1:
-            self.num_heads = num_heads
-        else:
-            assert (
-                    channels % num_head_channels == 0
-            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
-            self.num_heads = channels // num_head_channels
+        self.num_heads = num_heads
         self.downsample_factor = downsample_factor
         self.use_checkpoint = use_checkpoint
-        self.norm = normalization(channels)
-        self.qkv = conv_nd(1, channels, channels * 3, 1)
+        self.norm = nn.LayerNorm(channels)
 
-        if use_new_attention_order:
-            self.attention = QKVAttention(self.num_heads)
-        else:
-            self.attention = QKVAttentionLegacy(self.num_heads)
+        # Linear projections for query, key, and value
+        self.qkv_proj = nn.Linear(channels, channels * 3)
 
-        self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
+        # Attention layer
+        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
+
+        # Output projection
+        self.out_proj = nn.Linear(channels, channels)
 
     def forward(self, x):
-        return checkpoint(self._forward, (x,), self.parameters(), True)
+        return self._checkpoint(self._forward, x)
+
+    def _checkpoint(self, function, *args):
+        """Apply checkpointing to save memory if required."""
+
+    # if self.use_checkpoint:
+    #     return torch.utils.checkpoint.checkpoint(function, *args)
+    # else:
+    #     return function(*args)
 
     def _forward(self, x):
-        b, c, h, w = x.shape
+        # Downsample the input for efficient attention
+        b, c, h, w = x.size()
+        x_downsampled = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
 
-        # Downsample spatial dimensions before applying attention
-        downsampled_x = F.interpolate(x, scale_factor=1.0 / self.downsample_factor, mode='nearest')
+        # Flatten the downsampled input for attention
+        b, c, h_ds, w_ds = x_downsampled.shape
+        x_flattened = x_downsampled.view(b, c, -1).permute(0, 2, 1)  # (B, HW, C)
 
-        # Flatten for attention mechanism
-        b, c, dh, dw = downsampled_x.shape  # Capture the downsampled height (dh) and width (dw)
-        downsampled_x = downsampled_x.reshape(b, c, -1)  # Reshape to flattened shape for attention
+        # Apply LayerNorm
+        x_norm = self.norm(x_flattened)
 
-        # Apply normalization and attention
-        qkv = self.qkv(self.norm(downsampled_x))
-        h = self.attention(qkv)
-        h = self.proj_out(h)
+        # Compute QKV and apply attention
+        qkv = self.qkv_proj(x_norm)  # (B, HW, 3C)
+        qkv = qkv.view(b, -1, 3, self.num_heads, c // self.num_heads)  # (B, HW, 3, H, C // H)
+        q, k, v = qkv.unbind(2)  # Split into Q, K, V
 
-        # Reshape back to the downsampled size
-        h = h.reshape(b, c, dh, dw)
+        # Apply multihead attention
+        attn_output, _ = self.attention(q, k, v)
+
+        # Project the output back to the original dimension
+        attn_output = self.out_proj(attn_output)
+
+        # Reshape the attention output back to the downsampled spatial size
+        attn_output = attn_output.permute(0, 2, 1).view(b, c, h_ds, w_ds)
 
         # Upsample back to the original size
-        h = F.interpolate(h, size=(h, w), mode='nearest')  # Use the original height and width
+        attn_output = F.interpolate(attn_output, size=(h, w), mode='nearest')
 
-        # Add residual connection
-        return x + h  # The residual connection remains the same
-
+        # Return the residual connection (input + attention output)
+        return x + attn_output
 
 
 class LinearAttentionBlock(nn.Module):
@@ -156,6 +154,7 @@ class LinearAttentionBlock(nn.Module):
         # Project output back and reshape
         h = self.proj_out(h)
         return h.view(b, c, h, w)  # Reshape back to original shape
+
 
 class AttentionPool2d(nn.Module):
     """
@@ -247,8 +246,6 @@ class SE_Attention_Feedback(nn.Module):
         y = self.se(y).view(b, c, 1, 1)
         print(f"Shape after SE linear layers: {y.shape}")
         return x * y.expand_as(x)
-
-
 
 
 class SE_Attention(nn.Module):
@@ -667,9 +664,9 @@ class UNetModel(nn.Module):
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
         # self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
-        self.attention_feedback = LinformerAttention(channels=ch,
-                                                 num_heads=num_heads
-                                                       )  # Add an attention block for feedback
+        self.attention_feedback = EfficientAttention(channels=ch,
+                                                     num_heads=num_heads,
+                                                     downsample_factor=2)  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
@@ -897,7 +894,6 @@ class UNetModel(nn.Module):
         dist_h1 = self.SE_Attention_dist_1(dist_h1)
         dist_h2 = self.SE_Attention_dist_2(dist_h2)
 
-
         com_h3 = self.conv_common(h3)
         dist_h3 = self.conv_distinct(h3)
         com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
@@ -910,7 +906,7 @@ class UNetModel(nn.Module):
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
-        print("h::",h.shape)
+        print("h::", h.shape)
         # print(l)
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
@@ -924,7 +920,8 @@ class SuperResModel(UNetModel):
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         print(image_size)
-    def forward(self, x, timesteps,**kwargs):
+
+    def forward(self, x, timesteps, **kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
         return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])
