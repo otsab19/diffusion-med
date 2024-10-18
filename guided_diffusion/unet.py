@@ -106,6 +106,24 @@ class EfficientAttention(nn.Module):
         return attn_output
 
 
+class DownsampledEfficientAttention(nn.Module):
+    def __init__(self, channels, num_heads=4, downsample_factor=2):
+        super().__init__()
+        self.attention = EfficientAttention(channels, num_heads)
+        self.downsample_factor = downsample_factor
+
+    def forward(self, x):
+        # Downsample input
+        x_downsampled = F.interpolate(x, scale_factor=1 / self.downsample_factor, mode='bilinear', align_corners=False)
+
+        # Apply attention
+        attn_output = self.attention(x_downsampled)
+
+        # Upsample output back to original resolution
+        attn_output_upsampled = F.interpolate(attn_output, size=(x.shape[2], x.shape[3]), mode='bilinear',
+                                              align_corners=False)
+        return attn_output_upsampled
+
 
 class LinearAttentionBlock(nn.Module):
     """
@@ -651,9 +669,9 @@ class UNetModel(nn.Module):
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
         # self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
-        self.attention_feedback = EfficientAttention(channels=ch,
-                                                     num_heads=num_heads,
-                                                     downsample_factor=2)  # Add an attention block for feedback
+        self.attention_feedback = DownsampledEfficientAttention(channels=ch,
+                                                                num_heads=num_heads,
+                                                                downsample_factor=2)  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
