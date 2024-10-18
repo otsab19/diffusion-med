@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 import math
 
+from linformer import Linformer
 import numpy as np
 import torch as th
 import torch.nn as nn
@@ -20,6 +21,32 @@ from .nn import (
 
 import copy
 
+
+class LinformerAttention(nn.Module):
+    def __init__(self, channels, seq_length=224, num_heads=4, k=64):
+        super().__init__()
+        self.channels = channels
+        self.seq_length = seq_length
+        self.num_heads = num_heads
+        self.k = k
+
+        self.linformer = Linformer(
+            dim=channels,
+            seq_len=seq_length,
+            depth=1,
+            heads=num_heads,
+            k=k,
+            one_kv_head=True,
+            share_kv=True
+        )
+
+    def forward(self, x):
+        # Reshape input for Linformer
+        b, c, h, w = x.shape
+        x = x.view(b, c, -1).transpose(1, 2)  # Shape: (b, seq_len, channels)
+        x = self.linformer(x)  # Apply Linformer attention
+        x = x.transpose(1, 2).view(b, c, h, w)  # Reshape back to original
+        return x
 
 class EfficientAttentionBlock(nn.Module):
     """
@@ -630,13 +657,10 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         print("chh::", ch)
-        self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
-        # self.attention_feedback = AttentionBlock(ch,
-        #                                          use_checkpoint=use_checkpoint,
-        #                                          num_heads=num_heads,
-        #                                          num_head_channels=num_head_channels,
-        #                                          use_new_attention_order=use_new_attention_order
-        #                                                )  # Add an attention block for feedback
+        # self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
+        self.attention_feedback = LinformerAttention(channels=ch,
+                                                 num_heads=num_heads
+                                                       )  # Add an attention block for feedback
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
@@ -844,10 +868,10 @@ class UNetModel(nn.Module):
             if feedback is not None:
                 # Use attention over feedback to choose important features
                 feedback = self.attention_feedback(feedback)
-                feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
+                # feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
                 # Use 1x1 convolution to match the channels if needed
-                if feedback.shape[1] != h1.shape[1]:
-                    feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
+                # if feedback.shape[1] != h1.shape[1]:
+                #     feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
                 h1 = h1 + feedback
                 h2 = h2 + feedback
                 h3 = h3 + feedback

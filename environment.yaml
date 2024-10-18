@@ -148,3 +148,4 @@ dependencies:
     - pycryptodomex==3.18.0
     - matplotlib==3.4.3
     - ipykernel
+    - linformer
