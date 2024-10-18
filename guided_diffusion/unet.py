@@ -879,7 +879,7 @@ class UNetModel(nn.Module):
             if feedback is not None:
                 # Use attention over feedback to choose important features
                 feedback = self.attention_feedback(feedback)
-                feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
+                # feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
                 # Use 1x1 convolution to match the channels if needed
                 # if feedback.shape[1] != h1.shape[1]:
                 #     feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
@@ -887,8 +887,18 @@ class UNetModel(nn.Module):
                 h2 = h2 + feedback
                 h3 = h3 + feedback
 
-            hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
-            feedback = hs[-1]  # Update feedback with current output
+            # Compute the current hidden state
+            current_hs = (1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3
+            hs.append(current_hs)
+            # hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
+            # Update feedback using a weighted combination of the current hidden state and previous feedback
+            if feedback is None:
+                feedback = current_hs  # Initialize feedback on the first step
+            else:
+                # Weighted update (you can adjust the weight based on experimentation)
+                alpha = 0.5  # Weight factor to balance current and previous feedback
+                feedback = alpha * current_hs + (1 - alpha) * feedback
+                # feedback = hs[-1]  # Update feedback with current output
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
