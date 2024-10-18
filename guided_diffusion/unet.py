@@ -881,8 +881,8 @@ class UNetModel(nn.Module):
                 feedback = self.attention_feedback(feedback)
                 feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
                 # Use 1x1 convolution to match the channels if needed
-                if feedback.shape[1] != h1.shape[1]:
-                    feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
+                # if feedback.shape[1] != h1.shape[1]:
+                #     feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
                 h1 = h1 + feedback
                 h2 = h2 + feedback
                 h3 = h3 + feedback
