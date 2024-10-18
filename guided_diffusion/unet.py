@@ -29,6 +29,8 @@ class LinformerAttention(nn.Module):
         self.seq_length = seq_length
         self.num_heads = num_heads
         self.k = k
+        # Downsample the input to ensure a consistent sequence length
+        self.downsample = nn.AdaptiveAvgPool2d((14, 14))  # Adjust this to control the resolution
 
         self.linformer = Linformer(
             dim=channels,
@@ -43,6 +45,8 @@ class LinformerAttention(nn.Module):
     def forward(self, x):
         # Reshape input for Linformer
         b, c, h, w = x.shape
+        # Downsample the input to reduce sequence length
+        x = self.downsample(x)
         x = x.view(b, c, -1).transpose(1, 2)  # Shape: (b, seq_len, channels)
         x = self.linformer(x)  # Apply Linformer attention
         x = x.transpose(1, 2).view(b, c, h, w)  # Reshape back to original
