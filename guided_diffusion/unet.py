@@ -950,6 +950,7 @@ class EncoderUNetModel(nn.Module):
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
         """
+        print("Input shape:", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         results = []
         h = x.type(self.dtype)
