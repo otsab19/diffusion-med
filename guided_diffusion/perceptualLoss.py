@@ -1,26 +1,17 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models
-
 from guided_diffusion.vgg import get_vgg_model
-
 
 class PerceptualLossVGG16(nn.Module):
     def __init__(self, model_path=None, use_l1=True):
         super(PerceptualLossVGG16, self).__init__()
 
-        # Load VGG16 model without pretrained weights
+        # Load VGG16 model with grayscale input handled in get_vgg_model
         vgg = get_vgg_model()
 
         # Load weights from the specified model path, if provided
         if model_path:
             vgg.load_state_dict(torch.load(model_path), strict=False)
-
-        # Modify the first convolutional layer to accept 1-channel grayscale input
-        old_weights = vgg.features[0].weight.data
-        new_weights = old_weights.mean(dim=1, keepdim=True)  # Convert RGB to grayscale by averaging across channels
-        vgg.features[0] = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1)  # Adjust input for grayscale
-        vgg.features[0].weight.data = new_weights
 
         # Extract the specific layers for perceptual loss computation
         self.layer_ids = [4, 9, 16, 23]  # Corresponding to conv1_2, conv2_2, conv3_3, conv4_3 layers in VGG16
