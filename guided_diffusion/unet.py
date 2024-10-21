@@ -735,7 +735,8 @@ class SuperResModel(UNetModel):
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         print(image_size)
-    def forward(self, x, timesteps,**kwargs):
+
+    def forward(self, x, timesteps, **kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
         return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])

@@ -883,10 +883,9 @@ class GaussianDiffusion:
             terms["disent"] = terms['com'] / terms['dist']
 
             # Calculate perceptual loss using a pre-trained model (e.g., VGG)
-            vgg_features_target = self.perceptual_loss(x_start)  # Features of the target image
-            vgg_features_output = self.perceptual_loss(model_output)  # Features of the generated output
+            perceptual_loss = self.perceptual_loss(x_start, model_output)  # Features of the target image
 
-            perceptual_loss = mean_flat((vgg_features_target - vgg_features_output) ** 2)
+            # perceptual_loss = mean_flat((vgg_features_target - vgg_features_output) ** 2)
             terms["perceptual_loss"] = perceptual_loss
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["disent"] + terms["vb"] + terms["perceptual_loss"]
