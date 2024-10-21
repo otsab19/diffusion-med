@@ -14,6 +14,8 @@ import torch as th
 from .nn import mean_flat
 from .losses import normal_kl, discretized_gaussian_log_likelihood
 from guided_diffusion.sampler import NoiseScheduleVP, model_wrapper, DPM_Solver
+from .perceptualLoss import PerceptualLossVGG16
+
 
 class L1_Charbonnier_loss(th.nn.Module):
     """L1 Charbonnierloss."""
@@ -131,7 +133,12 @@ class GaussianDiffusion:
             model_var_type,
             loss_type,
             rescale_timesteps=False,
+            vgg16Path = ""
     ):
+        model_path = 'path_to_your_vgg16_weights.pth'
+
+        # Create an instance of the perceptual loss model
+        self.perceptual_loss = PerceptualLossVGG16(model_path=vgg16Path, use_l1=True)
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
         self.loss_type = loss_type
@@ -874,10 +881,17 @@ class GaussianDiffusion:
                 terms['dist'] = mean_flat((dist_h1 - dist_h2) ** 2)
 
             terms["disent"] = terms['com'] / terms['dist']
+
+            # Calculate perceptual loss using a pre-trained model (e.g., VGG)
+            vgg_features_target = self.perceptual_loss(x_start)  # Features of the target image
+            vgg_features_output = self.perceptual_loss(model_output)  # Features of the generated output
+
+            perceptual_loss = mean_flat((vgg_features_target - vgg_features_output) ** 2)
+            terms["perceptual_loss"] = perceptual_loss
             if "vb" in terms:
-                terms["loss"] = terms["mse"] + terms["disent"] + terms["vb"]
+                terms["loss"] = terms["mse"] + terms["disent"] + terms["vb"] + terms["perceptual_loss"]
             else:
-                terms["loss"] = terms["mse"] + terms["disent"]
+                terms["loss"] = terms["mse"] + terms["disent"] + terms["perceptual_loss"]
         else:
             raise NotImplementedError(self.loss_type)
 

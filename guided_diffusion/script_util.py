@@ -75,6 +75,7 @@ def sr_create_model_and_diffusion(args):
         rescale_timesteps=args.rescale_timesteps,
         rescale_learned_sigmas=args.rescale_learned_sigmas,
         timestep_respacing=args.timestep_respacing,
+        vgg16path=args.vgg16Path
     )
     return model, diffusion
 
@@ -128,6 +129,7 @@ def create_gaussian_diffusion(
         rescale_timesteps=False,
         rescale_learned_sigmas=False,
         timestep_respacing="",
+        vgg16path=""
 ):
     betas = gd.get_named_beta_schedule(noise_schedule, steps)
     if use_kl:
@@ -155,6 +157,7 @@ def create_gaussian_diffusion(
         ),
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,
+        vgg16Path=vgg16path
     )
 
 

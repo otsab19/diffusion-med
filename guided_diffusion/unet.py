@@ -2,13 +2,13 @@ from abc import abstractmethod
 
 import math
 
-import torch
-from linformer import Linformer
 import numpy as np
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .LinearAttn import LinearAttention
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     checkpoint,
@@ -21,145 +21,6 @@ from .nn import (
 )
 
 import copy
-
-
-class LinformerAttention(nn.Module):
-    def __init__(self, channels, seq_length=224, num_heads=4, k=64):
-        super().__init__()
-        self.channels = channels
-        self.seq_length = seq_length
-        self.num_heads = num_heads
-        self.k = k
-        # Downsample the input to ensure a consistent sequence length
-        self.downsample = nn.AdaptiveAvgPool2d((14, 14))  # Adjust this to control the resolution
-
-        self.linformer = Linformer(
-            dim=channels,
-            seq_len=seq_length,
-            depth=1,
-            heads=num_heads,
-            k=k,
-            one_kv_head=True,
-            share_kv=True
-        )
-
-    def forward(self, x):
-        # Reshape input for Linformer
-        b, c, h, w = x.shape
-        seq_length = h * w  # Dynamically calculate sequence length
-        x = x.view(b, c, -1).transpose(1, 2)  # Shape: (b, seq_len, channels)
-
-        # Apply Linformer attention
-        x = self.linformer(x)
-
-        # Reshape the tensor back to its original shape using sqrt of the sequence length
-        new_h = int(math.sqrt(x.size(1)))
-        x = x.transpose(1, 2).view(b, c, new_h, new_h)  # Reshape based on new height and width
-
-        return x
-
-
-class EfficientAttention(nn.Module):
-    def __init__(self, channels, num_heads=4, downsample_factor=2):
-        super().__init__()
-        self.channels = channels
-        self.num_heads = num_heads
-        self.downsample_factor = downsample_factor
-
-        # Layer normalization
-        self.norm = nn.LayerNorm(channels)
-
-        # QKV linear projections
-        self.qkv_proj = nn.Linear(channels, channels * 3)
-
-        # Multi-head attention
-        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
-
-        # Output projection
-        self.out_proj = nn.Linear(channels, channels)
-
-    def forward(self, x):
-        # x is expected to be 4D (batch, channels, height, width)
-        b, c, h, w = x.shape
-
-        # Reshape for attention, preserving batch size
-        # Merge the height and width dimensions into one (spatial dimension becomes a sequence)
-        x = x.view(b, c, h * w).permute(0, 2, 1)  # (batch, seq_len, channels)
-
-        # Apply layer normalization
-        x = self.norm(x)
-
-        # Apply the QKV projection to compute query, key, value
-        qkv = self.qkv_proj(x)  # (batch, seq_len, 3 * channels)
-
-        # Split Q, K, V from the projection
-        q, k, v = qkv.chunk(3, dim=-1)
-
-        # Apply multi-head attention (batch_first=True expects (batch, seq_len, embed_dim))
-        attn_output, _ = self.attention(q, k, v)
-
-        # Project back to the original channels
-        attn_output = self.out_proj(attn_output)
-
-        # Reshape back to the original 4D tensor (batch, channels, height, width)
-        attn_output = attn_output.permute(0, 2, 1).view(b, c, h, w)
-
-        return attn_output
-
-
-class DownsampledEfficientAttention(nn.Module):
-    def __init__(self, channels, num_heads=4, downsample_factor=2):
-        super().__init__()
-        self.attention = EfficientAttention(channels, num_heads)
-        self.downsample_factor = downsample_factor
-
-    def forward(self, x):
-        # Downsample input
-        x_downsampled = F.interpolate(x, scale_factor=1 / self.downsample_factor, mode='bilinear', align_corners=False)
-
-        # Apply attention
-        attn_output = self.attention(x_downsampled)
-
-        # Upsample output back to original resolution
-        attn_output_upsampled = F.interpolate(attn_output, size=(x.shape[2], x.shape[3]), mode='bilinear',
-                                              align_corners=False)
-        return attn_output_upsampled
-
-
-class LinearAttentionBlock(nn.Module):
-    """
-    Linear attention block to reduce memory complexity and make the feedback attention mechanism
-    more GPU-friendly.
-    """
-
-    def __init__(self, channels, num_heads=1, use_checkpoint=False):
-        super().__init__()
-        self.channels = channels
-        self.num_heads = num_heads
-        self.use_checkpoint = use_checkpoint
-        self.norm = normalization(channels)
-        self.qkv = conv_nd(1, channels, channels * 3, 1)
-
-        # Linear attention layer
-        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
-
-        self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
-
-    def forward(self, x):
-        return checkpoint(self._forward, (x,), self.parameters(), True)
-
-    def _forward(self, x):
-        b, c, h, w = x.shape
-        x = x.view(b, c, -1).permute(0, 2, 1)  # Reshape for attention: [B, N, C]
-
-        # Apply normalization and attention
-        x = self.norm(x)
-        qkv = self.qkv(x)  # Project to QKV
-        h, _ = self.attention(qkv, qkv, qkv)  # Linear attention
-
-        # Project output back and reshape
-        h = self.proj_out(h)
-        return h.view(b, c, h, w)  # Reshape back to original shape
 
 
 class AttentionPool2d(nn.Module):
@@ -219,39 +80,6 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
             else:
                 x = layer(x)
         return x
-
-
-class SE_Attention_Feedback(nn.Module):
-    def __init__(self, channel=512, reduction=16):
-        super().__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.se = nn.Sequential(nn.Linear(channel, channel // reduction, bias=False),
-                                nn.ReLU(inplace=True),
-                                nn.Linear(channel // reduction, channel, bias=False),
-                                nn.Sigmoid())
-
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight, mode='fan_out')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                init.normal_(m.weight, std=0.001)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        b, c, _, _ = x.size()
-        print(f"Input shape to SE block: {x.shape}")
-        y = self.avg_pool(x).view(b, c)
-        print(f"Shape after avg_pool and view: {y.shape}")
-        y = self.se(y).view(b, c, 1, 1)
-        print(f"Shape after SE linear layers: {y.shape}")
-        return x * y.expand_as(x)
 
 
 class SE_Attention(nn.Module):
@@ -645,6 +473,7 @@ class UNetModel(nn.Module):
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
+
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -659,7 +488,7 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-
+        self.feedback_attn = LinearAttention(channels=in_channels)
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -668,11 +497,7 @@ class UNetModel(nn.Module):
         )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
-        print("chh::", ch)
-        # self.attention_feedback = SE_Attention_Feedback(channel=96, reduction=8)
-        self.attention_feedback = DownsampledEfficientAttention(channels=ch,
-                                                                num_heads=num_heads,
-                                                                downsample_factor=2)  # Add an attention block for feedback
+
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
@@ -875,33 +700,23 @@ class UNetModel(nn.Module):
             h1 = self.input_blocks[idx](h1, emb)
             h2 = self.input_blocks_lr[idx](h2, emb)
             h3 = self.input_blocks_other[idx](h3, emb)
-
-            # Incorporate feedback
+            # If feedback is available, use it
             if feedback is not None:
-                # Concatenate h1, h2, and h3 along the channel dimension
-                combined_h = torch.cat((h1, h2, h3), dim=1)
-                # Use attention over feedback to choose important features
-                feedback = self.attention_feedback(combined_h)
-                # feedback = F.interpolate(feedback, size=(h1.shape[2], h1.shape[3]), mode='bilinear', align_corners=False)
-                # Use 1x1 convolution to match the channels if needed
-                # if feedback.shape[1] != h1.shape[1]:
-                #     feedback = nn.Conv2d(feedback.shape[1], h1.shape[1], kernel_size=1).to(feedback.device)(feedback)
+                combined_h = torch.cat((h1, h2, h3), dim=1)  # Concatenate h1, h2, h3 along channels
+                feedback = self.feedback_attn(combined_h)  # Generate feedback using attention
+
+                # Use feedback to update h1, h2, h3
                 h1 = h1 + feedback
                 h2 = h2 + feedback
                 h3 = h3 + feedback
-
-            # Compute the current hidden state
-            current_hs = (1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3
-            hs.append(current_hs)
-            # hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
-            # Update feedback using a weighted combination of the current hidden state and previous feedback
-            if feedback is None:
-                feedback = current_hs  # Initialize feedback on the first step
-            else:
-                # Weighted update (you can adjust the weight based on experimentation)
-                alpha = 0.5  # Weight factor to balance current and previous feedback
-                feedback = alpha * current_hs + (1 - alpha) * feedback
-                # feedback = hs[-1]  # Update feedback with current output
+                hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
+                # Update feedback for the next iteration
+                if feedback is None:
+                    feedback = hs[-1]  # Initialize feedback from the first hidden state
+                else:
+                    # Update feedback with a weighted combination of current hidden state and previous feedback
+                    alpha = 0.5  # You can experiment with this weighting factor
+                    feedback = alpha * hs[-1] + (1 - alpha) * feedback
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
@@ -911,6 +726,7 @@ class UNetModel(nn.Module):
 
         dist_h1 = self.SE_Attention_dist_1(dist_h1)
         dist_h2 = self.SE_Attention_dist_2(dist_h2)
+
 
         com_h3 = self.conv_common(h3)
         dist_h3 = self.conv_distinct(h3)

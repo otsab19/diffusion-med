@@ -5,6 +5,7 @@ diffusion_steps: 1000
 dropout: 0.0
 ema_rate: '0.9999'
 fp16_scale_growth: 0.001
+vgg16Path: /content/drive/MyDrive/vgg_brain_mri.pth
 hr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_hr_t2_scale_by_4_imgs.npy
 lr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_lr_t2_scale_by_4_imgs.npy
 other_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_hr_t1_scale_by_4_imgs.npy
