@@ -3,12 +3,10 @@ from abc import abstractmethod
 import math
 
 import numpy as np
-import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .LinearAttn import LinearAttention
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     checkpoint,
@@ -488,7 +486,7 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-        self.feedback_attn = LinearAttention(channels=in_channels)
+
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -686,7 +684,6 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         hs = []
-        feedback = None
         print("x shape::", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         h1 = x.type(self.dtype)
@@ -700,23 +697,7 @@ class UNetModel(nn.Module):
             h1 = self.input_blocks[idx](h1, emb)
             h2 = self.input_blocks_lr[idx](h2, emb)
             h3 = self.input_blocks_other[idx](h3, emb)
-            # If feedback is available, use it
-            if feedback is not None:
-                combined_h = torch.cat((h1, h2, h3), dim=1)  # Concatenate h1, h2, h3 along channels
-                feedback = self.feedback_attn(combined_h)  # Generate feedback using attention
-
-            # Use feedback to update h1, h2, h3
-            h1 = h1 + feedback
-            h2 = h2 + feedback
-            h3 = h3 + feedback
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
-            # # Update feedback for the next iteration
-            # if feedback is None:
-            #     feedback = hs[-1]  # Initialize feedback from the first hidden state
-            # else:
-            #     # Update feedback with a weighted combination of current hidden state and previous feedback
-            #     alpha = 0.5  # You can experiment with this weighting factor
-            #     feedback = alpha * hs[-1] + (1 - alpha) * feedback
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
@@ -740,7 +721,7 @@ class UNetModel(nn.Module):
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
-        print("h::", h.shape)
+        print("h::",h.shape)
         # print(l)
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
@@ -754,8 +735,7 @@ class SuperResModel(UNetModel):
     def __init__(self, image_size, in_channels, *args, **kwargs):
         super().__init__(image_size, in_channels, *args, **kwargs)
         print(image_size)
-
-    def forward(self, x, timesteps, **kwargs):
+    def forward(self, x, timesteps,**kwargs):
         # _, _, new_height, new_width = x.shape
         # upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
         return super().forward(x, timesteps, kwargs['low_res'], kwargs['other'])
