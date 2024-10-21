@@ -705,18 +705,18 @@ class UNetModel(nn.Module):
                 combined_h = torch.cat((h1, h2, h3), dim=1)  # Concatenate h1, h2, h3 along channels
                 feedback = self.feedback_attn(combined_h)  # Generate feedback using attention
 
-                # Use feedback to update h1, h2, h3
-                h1 = h1 + feedback
-                h2 = h2 + feedback
-                h3 = h3 + feedback
-                hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
-                # Update feedback for the next iteration
-            if feedback is None:
-                feedback = hs[-1]  # Initialize feedback from the first hidden state
-            else:
-                # Update feedback with a weighted combination of current hidden state and previous feedback
-                alpha = 0.5  # You can experiment with this weighting factor
-                feedback = alpha * hs[-1] + (1 - alpha) * feedback
+            # Use feedback to update h1, h2, h3
+            h1 = h1 + feedback
+            h2 = h2 + feedback
+            h3 = h3 + feedback
+            hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
+            # # Update feedback for the next iteration
+            # if feedback is None:
+            #     feedback = hs[-1]  # Initialize feedback from the first hidden state
+            # else:
+            #     # Update feedback with a weighted combination of current hidden state and previous feedback
+            #     alpha = 0.5  # You can experiment with this weighting factor
+            #     feedback = alpha * hs[-1] + (1 - alpha) * feedback
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
