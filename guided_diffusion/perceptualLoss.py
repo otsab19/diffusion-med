@@ -2,12 +2,15 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
+from guided_diffusion.vgg import get_vgg_model
+
+
 class PerceptualLossVGG16(nn.Module):
     def __init__(self, model_path=None, use_l1=True):
         super(PerceptualLossVGG16, self).__init__()
 
         # Load VGG16 model without pretrained weights
-        vgg = models.vgg16(pretrained=False)
+        vgg = get_vgg_model()
 
         # Load weights from the specified model path, if provided
         if model_path:
