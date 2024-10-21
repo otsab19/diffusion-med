@@ -5,7 +5,7 @@ from guided_diffusion.vgg import get_vgg_model
 class PerceptualLossVGG16(nn.Module):
     def __init__(self, model_path=None, use_l1=True):
         super(PerceptualLossVGG16, self).__init__()
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # Load VGG16 model with grayscale input handled in get_vgg_model
         vgg = get_vgg_model()
 
@@ -19,6 +19,8 @@ class PerceptualLossVGG16(nn.Module):
 
         # Set the criterion (L1 or MSE loss) based on the input flag
         self.criterion = nn.L1Loss() if use_l1 else nn.MSELoss()
+
+        self.vgg = self.vgg.to(self.device)  # Transfer the VGG model to the correct device
 
         # Freeze VGG model weights since we do not train the perceptual loss network
         for param in self.vgg.parameters():
@@ -36,6 +38,10 @@ class PerceptualLossVGG16(nn.Module):
         Returns:
             loss (Tensor): The perceptual loss value.
         """
+        # Ensure that the input and target are on the correct device
+        x = x.to(self.device)
+        target = target.to(self.device)
+
         loss = 0.0
         for i, layer in enumerate(self.vgg):
             x = layer(x)
