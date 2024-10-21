@@ -711,12 +711,12 @@ class UNetModel(nn.Module):
                 h3 = h3 + feedback
                 hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
                 # Update feedback for the next iteration
-                if feedback is None:
-                    feedback = hs[-1]  # Initialize feedback from the first hidden state
-                else:
-                    # Update feedback with a weighted combination of current hidden state and previous feedback
-                    alpha = 0.5  # You can experiment with this weighting factor
-                    feedback = alpha * hs[-1] + (1 - alpha) * feedback
+            if feedback is None:
+                feedback = hs[-1]  # Initialize feedback from the first hidden state
+            else:
+                # Update feedback with a weighted combination of current hidden state and previous feedback
+                alpha = 0.5  # You can experiment with this weighting factor
+                feedback = alpha * hs[-1] + (1 - alpha) * feedback
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
