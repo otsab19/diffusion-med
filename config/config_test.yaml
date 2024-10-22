@@ -11,7 +11,7 @@ other_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_testing_hr_t1_scale_by_
 image_size: 224
 in_channel: 1
 learn_sigma: true
-model_path: /content/drive/MyDrive/Pretrained_DisC_Diff/DisC_Diff_X4_IXI.pt
+model_path: /content/drive/MyDrive/diffusion-med/models_perceptual/x4_IXI/model050000.pt
 noise_schedule: linear
 num_channels: 96
 num_head_channels: 48
