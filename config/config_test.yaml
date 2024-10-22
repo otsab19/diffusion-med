@@ -29,3 +29,4 @@ use_checkpoint: false
 use_fp16: false
 use_kl: false
 use_scale_shift_norm: true
+vgg16Path: /content/drive/MyDrive/vgg_brain_mri.pth
