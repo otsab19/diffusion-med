@@ -7,6 +7,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .DynamicFilerConv import DynamicFilterConv
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     checkpoint,
@@ -471,7 +472,7 @@ class UNetModel(nn.Module):
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
-
+        self.dynamic_conv = DynamicFilterConv(in_channels, out_channels, num_conditions=4)  # Define dynamic conv layer
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -684,7 +685,7 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         hs = []
-        print("x shape::", x.shape)
+        # print("x shape::", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         h1 = x.type(self.dtype)
         h2 = low_res.type(self.dtype)
@@ -705,8 +706,11 @@ class UNetModel(nn.Module):
         dist_h1 = self.conv_distinct(h1)
         dist_h2 = self.conv_distinct(h2)
 
-        dist_h1 = self.SE_Attention_dist_1(dist_h1)
-        dist_h2 = self.SE_Attention_dist_2(dist_h2)
+        # dist_h1 = self.SE_Attention_dist_1(dist_h1)
+        # dist_h2 = self.SE_Attention_dist_2(dist_h2)
+
+        dist_h1 = self.dynamic_conv(self.SE_Attention_dist_1(dist_h1), emb)
+        dist_h2 = self.dynamic_conv(self.SE_Attention_dist_2(dist_h2), emb)
 
 
         com_h3 = self.conv_common(h3)
@@ -716,12 +720,14 @@ class UNetModel(nn.Module):
         h = th.cat([com_h, dist_h1, dist_h2, dist_h3], dim=1)
         h = self.dim_reduction_non_zeros(h)
 
+        h = self.dynamic_conv(h, emb)
         h = self.middle_block(h, emb)
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
+
         h = h.type(x.dtype)
-        print("h::",h.shape)
+        # print("h::",h.shape)
         # print(l)
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
