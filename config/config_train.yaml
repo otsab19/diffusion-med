@@ -27,7 +27,7 @@ resblock_updown: true
 rescale_learned_sigmas: false
 rescale_timesteps: false
 #resume_checkpoint:  /content/drive/MyDrive/diffusion-med/models_perceptual/x4_IXI/model080000.pt
-checkpoint: ""
+resume_checkpoint: ""
 save_interval: 10000
 schedule_sampler: uniform
 timestep_respacing: ''
