@@ -63,4 +63,29 @@ class BraTSMRI(Dataset):
         return self.hr_data.shape[0]
 
     def __getitem__(self, index):
-        return self.hr_data[index], self.lr_data[index], self.other_data[index]
+        # return self.hr_data[index], self.lr_data[index], self.other_data[index]
+        # Get neighboring slices for high-res, low-res, and other datasets
+        hr_slices = self.get_neighboring_slices(self.hr_data, index)
+        lr_slices = self.get_neighboring_slices(self.lr_data, index)
+        other_slices = self.get_neighboring_slices(self.other_data, index)
+
+        return hr_slices, lr_slices, other_slices
+
+    def get_neighboring_slices(self, data, index):
+        """
+        Returns the current, previous, and next slices for conditioning.
+        If the slice is at the boundary, it repeats the edge slice.
+        """
+        if index == 0:  # First slice
+            prev_slice = data[index]
+        else:
+            prev_slice = data[index - 1]
+
+        current_slice = data[index]
+
+        if index == len(data) - 1:  # Last slice
+            next_slice = data[index]
+        else:
+            next_slice = data[index + 1]
+
+        return torch.stack([prev_slice, current_slice, next_slice], dim=0)

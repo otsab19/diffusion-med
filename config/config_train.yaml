@@ -10,7 +10,7 @@ hr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_hr_t2_scale_by_4_img
 lr_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_lr_t2_scale_by_4_imgs.npy
 other_data_dir: /content/drive/MyDrive/Processed_IXI/IXI_valid_hr_t1_scale_by_4_imgs.npy
 image_size: 224
-in_channel: 1
+in_channel: 3
 learn_sigma: true
 log_interval: 10
 lr: 0.0001
