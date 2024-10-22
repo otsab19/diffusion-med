@@ -64,6 +64,8 @@ class BraTSMRI(Dataset):
 
     def __getitem__(self, index):
         # return self.hr_data[index], self.lr_data[index], self.other_data[index]
+        if isinstance(index, list):
+            index = index[0]  # Select the first index if it's a list
         # Get neighboring slices for high-res, low-res, and other datasets
         hr_slices = self.get_neighboring_slices(self.hr_data, index)
         lr_slices = self.get_neighboring_slices(self.lr_data, index)
