@@ -20,6 +20,7 @@ class DynamicFilterConv(nn.Module):
 
     def forward(self, x, condition):
         # Generate filter weights from the condition
+        condition = condition.view(condition.size(0), -1)
         weights = self.condition_selector(condition)
 
         # Initialize output as zero
