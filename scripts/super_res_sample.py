@@ -51,6 +51,7 @@ def main():
 
     logger.log("creating samples...")
 
+    images_to_plot = []
     psnr_list, ssim_list = [], []
     try:
         for i in range(args.num_samples // args.batch_size):
@@ -81,7 +82,6 @@ def main():
             sample = sample.contiguous()
             sample = sample.cpu().numpy()
 
-            images_to_plot = []
             # Collect images for plotting comparison (only first 5 samples)
             if len(images_to_plot) < 5:
                 for j in range(min(5 - len(images_to_plot), hr.shape[0])):
@@ -121,6 +121,7 @@ def plot_image_comparisons(images_to_plot):
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.95)
+    plt.savefig('output_image.png')
     plt.show()
 
 def load_superres_data(hr_data_dir, lr_data_dir, other_data_dir, batch_size):
