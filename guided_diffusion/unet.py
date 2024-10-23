@@ -713,13 +713,14 @@ class UNetModel(nn.Module):
         # Apply feedback from previous pass (if available)
         if feedback is not None:
             print("--", len(feedback), len(hs))
-            print(hs[0].shape);
+            print(hs[0].shape)
+            feedback = [f.detach() for f in feedback]
             hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
             # hs = self.feedback_attention(hs, feedback)
 
         # Store feedback for the next forward pass
-        self.previous_feedback = hs.copy()
-
+        # self.previous_feedback = hs.copy()
+        self.previous_feedback = [h.detach() for h in hs.copy()]
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
 
