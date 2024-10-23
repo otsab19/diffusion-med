@@ -40,7 +40,8 @@ class FeedbackAttention(nn.Module):
         super(FeedbackAttention, self).__init__()
         self.attn = nn.Sequential(
             nn.Conv2d(input_channels * 2, input_channels, kernel_size=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
+            nn.Conv2d(input_channels, input_channels, kernel_size=1)
         )
 
     def forward(self, current, feedback):
