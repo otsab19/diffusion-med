@@ -740,7 +740,7 @@ class UNetModel(nn.Module):
         h = self.middle_block(h, emb)
         if feedback is not None:
             self.feedback_attention(h, self.previous_feedback)
-        self.previous_feedback = h.copy().detach()
+        self.previous_feedback = h.clone().detach()
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
