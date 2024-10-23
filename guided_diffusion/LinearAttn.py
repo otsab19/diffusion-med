@@ -44,6 +44,6 @@ class FeedbackAttention(nn.Module):
         )
 
     def forward(self, current, feedback):
-        combined = th.cat([current, feedback], dim=1)
+        combined = torch.cat([current, feedback], dim=1)
         attention_weights = self.attn(combined)
         return current * attention_weights + feedback * (1 - attention_weights)
