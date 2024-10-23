@@ -7,6 +7,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .LinearAttn import FeedbackAttention
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     checkpoint,
@@ -487,6 +488,7 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
+        self.feedback_attention = FeedbackAttention(in_channels)
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -684,6 +686,7 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         hs = []
+        feedback = None
         print("x shape::", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         h1 = x.type(self.dtype)
@@ -698,6 +701,22 @@ class UNetModel(nn.Module):
             h2 = self.input_blocks_lr[idx](h2, emb)
             h3 = self.input_blocks_other[idx](h3, emb)
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
+
+            # Feedback learning: add features from previous layer outputs
+            if feedback is None:
+                feedback = [h1, h2, h3]  # Initialize feedback with current layer outputs
+            else:
+                # Update feedback by combining current outputs with previous feedback
+                feedback = [f + h for f, h in zip(feedback, [h1, h2, h3])]
+
+                # Now, use the feedback in the next layers or processing
+                # h1 = h1 + feedback[0]
+                # h2 = h2 + feedback[1]
+                # h3 = h3 + feedback[2]
+
+                h1 = self.feedback_attention(h1, feedback[0])
+                h2 = self.feedback_attention(h2, feedback[1])
+                h3 = self.feedback_attention(h3, feedback[2])
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)

@@ -34,3 +34,16 @@ class LinearAttention(nn.Module):
         # Reshape back to the original size
         out = out.reshape(b, c, h, w)
         return self.proj_out(out)
+
+class FeedbackAttention(nn.Module):
+    def __init__(self, input_channels):
+        super(FeedbackAttention, self).__init__()
+        self.attn = nn.Sequential(
+            nn.Conv2d(input_channels * 2, input_channels, kernel_size=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, current, feedback):
+        combined = th.cat([current, feedback], dim=1)
+        attention_weights = self.attn(combined)
+        return current * attention_weights + feedback * (1 - attention_weights)
