@@ -719,7 +719,7 @@ class UNetModel(nn.Module):
             # hs = self.feedback_attention(hs, feedback)
 
         # Store feedback for the next forward pass
-        self.previous_feedback = hs
+        self.previous_feedback = hs.copy()
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
