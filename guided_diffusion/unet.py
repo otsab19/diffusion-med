@@ -738,16 +738,17 @@ class UNetModel(nn.Module):
         h = self.dim_reduction_non_zeros(h)
 
         h = self.middle_block(h, emb)
-        if feedback is not None:
-            self.feedback_attention(h, self.previous_feedback)
-        self.previous_feedback = h.clone().detach()
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
         # print("h::",h.shape)
         # print(l)
-        return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
+        out = self.out(h)
+        if feedback is not None:
+            self.feedback_attention(out, self.previous_feedback)
+        self.previous_feedback = h.clone().detach()
+        return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, out
 
 
 class SuperResModel(UNetModel):
