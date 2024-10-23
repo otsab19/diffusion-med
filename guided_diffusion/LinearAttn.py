@@ -36,15 +36,23 @@ class LinearAttention(nn.Module):
         return self.proj_out(out)
 
 class FeedbackAttention(nn.Module):
-    def __init__(self, input_channels):
+    def __init__(self):
         super(FeedbackAttention, self).__init__()
-        self.attn = nn.Sequential(
+        self.attn = None
+
+    def build_attention_layers(self, input_channels):
+        # Dynamically build attention layers based on the input channels
+        return nn.Sequential(
             nn.Conv2d(input_channels * 2, input_channels, kernel_size=1),
-            nn.Sigmoid(),
-            nn.Conv2d(input_channels, input_channels, kernel_size=1)
+            nn.Sigmoid()
         )
 
     def forward(self, current, feedback):
+        input_channels = current.shape[1]
+        # self.attn = self.build_attention_layers(input_channels)
+        # Build attention layers only if they haven't been built or if input channels change
+        if self.attn is None or self.attn[0].in_channels != input_channels * 2:
+            self.attn = self.build_attention_layers(input_channels)
         combined = torch.cat([current, feedback], dim=1)
         attention_weights = self.attn(combined)
         return current * attention_weights + feedback * (1 - attention_weights)

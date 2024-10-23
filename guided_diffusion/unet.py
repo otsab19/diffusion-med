@@ -491,7 +491,7 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        self.feedback_attention = FeedbackAttention(96)
+        # self.feedback_attention = FeedbackAttention(96)
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -710,10 +710,12 @@ class UNetModel(nn.Module):
             h3 = self.input_blocks_other[idx](h3, emb)
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
 
+        feedback_attention = FeedbackAttention()
         # Apply feedback from previous pass (if available)
         if feedback is not None:
             print("--", len(feedback), len(hs))
-            print(hs[0].shape); hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
+            print(hs[0].shape);
+            hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
             # hs = self.feedback_attention(hs, feedback)
 
         # Store feedback for the next forward pass
