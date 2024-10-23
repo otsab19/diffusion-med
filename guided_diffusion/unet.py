@@ -491,7 +491,6 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        self.feedback_attention = FeedbackAttention()
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -500,7 +499,7 @@ class UNetModel(nn.Module):
         )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
-
+        self.feedback_attention = FeedbackAttention(ch)
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
@@ -711,16 +710,16 @@ class UNetModel(nn.Module):
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
 
         # Apply feedback from previous pass (if available)
-        if feedback is not None:
-            print("--", len(feedback), len(hs))
-            print(hs[0].shape)
-            feedback = [f.detach() for f in feedback]
-            hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
-            # hs = self.feedback_attention(hs, feedback)
+        # if feedback is not None:
+        #     # print("--", len(feedback), len(hs))
+        #     # print(hs[0].shape)
+        #     feedback = [f.detach() for f in feedback]
+        #     hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
+        #     # hs = self.feedback_attention(hs, feedback)
 
         # Store feedback for the next forward pass
         # self.previous_feedback = hs.copy()
-        self.previous_feedback = [h.detach() for h in hs.copy()]
+        # self.previous_feedback = [h.detach() for h in hs.copy()]
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
 
@@ -739,6 +738,9 @@ class UNetModel(nn.Module):
         h = self.dim_reduction_non_zeros(h)
 
         h = self.middle_block(h, emb)
+        if feedback is not None:
+            self.feedback_attention(h, self.previous_feedback)
+        self.previous_feedback = h.copy().detach()
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
@@ -953,7 +955,7 @@ class EncoderUNetModel(nn.Module):
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
         """
-        print("Input shape:", x.shape)
+        # print("Input shape:", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         results = []
         h = x.type(self.dtype)

@@ -36,9 +36,9 @@ class LinearAttention(nn.Module):
         return self.proj_out(out)
 
 class FeedbackAttention(nn.Module):
-    def __init__(self):
+    def __init__(self, input_channels):
         super(FeedbackAttention, self).__init__()
-        self.attn = None
+        self.attn = self.build_attention_layers(input_channels).to(self.device)
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     def build_attention_layers(self, input_channels):
@@ -49,11 +49,6 @@ class FeedbackAttention(nn.Module):
         )
 
     def forward(self, current, feedback):
-        input_channels = current.shape[1]
-        # self.attn = self.build_attention_layers(input_channels)
-        # Build attention layers only if they haven't been built or if input channels change
-        if self.attn is None or self.attn[0].in_channels != input_channels * 2:
-            self.attn = self.build_attention_layers(input_channels).to(self.device)
         combined = torch.cat([current, feedback], dim=1)
         attention_weights = self.attn(combined)
         return current * attention_weights + feedback * (1 - attention_weights)
