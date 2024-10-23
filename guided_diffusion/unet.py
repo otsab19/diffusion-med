@@ -713,7 +713,7 @@ class UNetModel(nn.Module):
         # Apply feedback from previous pass (if available)
         if feedback is not None:
             print("--", len(feedback), len(hs))
-            print(hs[0].size)
+            print(hs[0].shape)
             hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
             # hs = self.feedback_attention(hs, feedback)
 
