@@ -499,7 +499,7 @@ class UNetModel(nn.Module):
         )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
-        self.feedback_attention = FeedbackAttention(1152)
+        self.feedback_attention = FeedbackAttention(out_channels)
         self.input_blocks = nn.ModuleList(
             [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
