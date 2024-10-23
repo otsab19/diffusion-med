@@ -473,6 +473,9 @@ class UNetModel(nn.Module):
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
 
+        # Feedback storage across forward passes
+        self.previous_feedback = None
+
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -677,7 +680,7 @@ class UNetModel(nn.Module):
         self.middle_block.apply(convert_module_to_f32)
         self.output_blocks.apply(convert_module_to_f32)
 
-    def forward(self, x, timesteps, low_res, other):
+    def forward(self, x, timesteps, low_res, other, reset_feedback=False):
         """
         Apply the model to an input batch.
         :param x: an [N x C x ...] Tensor of inputs.
@@ -686,8 +689,13 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         hs = []
-        feedback = None
-        print("x shape::", x.shape)
+        # Reset feedback if required (e.g., at the start of training or a new batch)
+        if reset_feedback or self.previous_feedback is None:
+            self.previous_feedback = None # No feedback for the first iteration
+
+        feedback = self.previous_feedback  # Use feedback from the previous forward pass
+
+        # print("x shape::", x.shape)
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         h1 = x.type(self.dtype)
         h2 = low_res.type(self.dtype)
@@ -702,21 +710,13 @@ class UNetModel(nn.Module):
             h3 = self.input_blocks_other[idx](h3, emb)
             hs.append((1 / 3) * h1 + (1 / 3) * h2 + (1 / 3) * h3)
 
-            # Feedback learning: add features from previous layer outputs
-            if feedback is None:
-                feedback = [h1, h2, h3]  # Initialize feedback with current layer outputs
-            else:
-                # Update feedback by combining current outputs with previous feedback
-                feedback = [f + h for f, h in zip(feedback, [h1, h2, h3])]
+        # Apply feedback from previous pass (if available)
+        if feedback is not None:
+            hs = [self.feedback_attention(h, f) for h, f in zip(hs, feedback)]
+            # hs = self.feedback_attention(hs, feedback)
 
-                # Now, use the feedback in the next layers or processing
-                # h1 = h1 + feedback[0]
-                # h2 = h2 + feedback[1]
-                # h3 = h3 + feedback[2]
-
-                h1 = self.feedback_attention(h1, feedback[0])
-                h2 = self.feedback_attention(h2, feedback[1])
-                h3 = self.feedback_attention(h3, feedback[2])
+        # Store feedback for the next forward pass
+        self.previous_feedback = hs
 
         com_h1 = self.conv_common(h1)
         com_h2 = self.conv_common(h2)
@@ -740,7 +740,7 @@ class UNetModel(nn.Module):
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
-        print("h::",h.shape)
+        # print("h::",h.shape)
         # print(l)
         return com_h1, com_h2, com_h3, dist_h1, dist_h2, dist_h3, self.out(h)
 
