@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .LinearAttn import FeedbackAttention
+from .LinearAttn import GatedFusionModule
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     checkpoint,
@@ -476,6 +477,10 @@ class UNetModel(nn.Module):
         # Feedback storage across forward passes
         self.previous_feedback = None
 
+        # Initialize the GatedFusionModule with the number of channels in the common/distinct feature maps
+        conv_ch = 288  # Assuming conv_ch represents the number of channels
+        self.gated_fusion = GatedFusionModule(channels=int(conv_ch / 2))
+
         self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -732,9 +737,12 @@ class UNetModel(nn.Module):
 
         com_h3 = self.conv_common(h3)
         dist_h3 = self.conv_distinct(h3)
-        com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
+        # com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
+        # Use the gated fusion to adaptively merge common and distinct features
+        fused_com_h = self.gated_fusion(com_h, (dist_h1 + dist_h2 + dist_h3) / 3)
         dist_h3 = self.SE_Attention_dist_3(dist_h3)
-        h = th.cat([com_h, dist_h1, dist_h2, dist_h3], dim=1)
+        # h = th.cat([com_h, dist_h1, dist_h2, dist_h3], dim=1)
+        h = th.cat([fused_com_h, dist_h1, dist_h2, dist_h3], dim=1)
         h = self.dim_reduction_non_zeros(h)
 
         h = self.middle_block(h, emb)

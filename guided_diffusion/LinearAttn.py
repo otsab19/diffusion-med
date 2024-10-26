@@ -52,3 +52,41 @@ class FeedbackAttention(nn.Module):
         combined = torch.cat([current, feedback], dim=1)
         attention_weights = self.attn(combined)
         return current * attention_weights + feedback * (1 - attention_weights)
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class GatedFusionModule(nn.Module):
+    def __init__(self, channels):
+        super(GatedFusionModule, self).__init__()
+        # Linear layers to learn the gating mechanism
+        self.gate_common = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=1),
+            nn.Sigmoid()  # Output gate for common features
+        )
+        self.gate_distinct = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=1),
+            nn.Sigmoid()  # Output gate for distinct features
+        )
+        # Combine fused output with another conv layer
+        self.fuse_conv = nn.Conv2d(2 * channels, channels, kernel_size=3, padding=1)
+
+    def forward(self, common_features, distinct_features):
+        # Compute gating weights
+        gate_common_weight = self.gate_common(common_features)
+        gate_distinct_weight = self.gate_distinct(distinct_features)
+
+        # Weighted combination of features
+        fused_common = common_features * gate_common_weight
+        fused_distinct = distinct_features * gate_distinct_weight
+
+        # Concatenate the fused features
+        fused_features = torch.cat([fused_common, fused_distinct], dim=1)
+
+        # Apply a final convolution to get the fused result
+        output = self.fuse_conv(fused_features)
+
+        return output
