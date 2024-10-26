@@ -737,7 +737,7 @@ class UNetModel(nn.Module):
 
         com_h3 = self.conv_common(h3)
         dist_h3 = self.conv_distinct(h3)
-        # com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
+        com_h = self.SE_Attention_com((1 / 3) * com_h1 + (1 / 3) * com_h2 + (1 / 3) * com_h3)
         # Use the gated fusion to adaptively merge common and distinct features
         fused_com_h = self.gated_fusion(com_h, (dist_h1 + dist_h2 + dist_h3) / 3)
         dist_h3 = self.SE_Attention_dist_3(dist_h3)
