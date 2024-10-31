@@ -111,17 +111,17 @@ def plot_image_comparisons(images_to_plot):
 
     for idx, (hr, lr_generated, lr_original) in enumerate(images_to_plot):
         # High-resolution image
-        axes[idx, 0].imshow(hr)
+        axes[idx, 0].imshow(hr, cmap='gray')
         axes[idx, 0].axis('off')
         axes[idx, 0].set_title(f'HR Image {idx + 1}')
 
         # Generated low-resolution image
-        axes[idx, 1].imshow(lr_generated)
+        axes[idx, 1].imshow(lr_generated, cmap='gray')
         axes[idx, 1].axis('off')
         axes[idx, 1].set_title(f'Generated LR Image {idx + 1}')
 
         # Original low-resolution image
-        axes[idx, 2].imshow(lr_original)
+        axes[idx, 2].imshow(lr_original, cmap='gray')
         axes[idx, 2].axis('off')
         axes[idx, 2].set_title(f'Original LR Image {idx + 1}')
 
