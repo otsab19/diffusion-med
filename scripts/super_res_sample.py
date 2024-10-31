@@ -83,7 +83,7 @@ def main():
             sample = sample.cpu().numpy()
 
             # Collect images for plotting comparison (only first 5 samples)
-            if len(images_to_plot) < 5:
+            if len(images_to_plot) < 20:
                 for j in range(min(5 - len(images_to_plot), hr.shape[0])):
                     images_to_plot.append((hr[j, ...], sample[j, ...]))
 
