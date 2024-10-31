@@ -106,7 +106,7 @@ def plot_image_comparisons(images_to_plot):
     """
     Plot comparisons between high-resolution and generated low-resolution images.
     """
-    fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(10, 20))
+    fig, axes = plt.subplots(nrows=5, ncols=3, figsize=(10, 20))
     fig.suptitle('Comparison of High-Resolution and Generated Low-Resolution Images', fontsize=16)
 
     for idx, (hr, lr_generated, lr_original) in enumerate(images_to_plot):
