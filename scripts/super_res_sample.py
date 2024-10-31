@@ -85,7 +85,8 @@ def main():
             # Collect images for plotting comparison (only first 5 samples)
             if len(images_to_plot) < 20:
                 for j in range(min(20 - len(images_to_plot), hr.shape[0])):
-                    images_to_plot.append((hr[j, ...], sample[j, ...]))
+                    images_to_plot.append((hr[j, ...], sample[j, ...], model_kwargs["low_res"][j, ...].cpu().numpy()))
+                    # images_to_plot.append((hr[j, ...], sample[j, ...]))
 
             for i in range(hr.shape[0]):
                 psnr_list.append(get_psnr(hr[i, ...], sample[i, ...]))
@@ -108,16 +109,21 @@ def plot_image_comparisons(images_to_plot):
     fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(10, 20))
     fig.suptitle('Comparison of High-Resolution and Generated Low-Resolution Images', fontsize=16)
 
-    for idx, (hr, lr) in enumerate(images_to_plot):
+    for idx, (hr, lr_generated, lr_original) in enumerate(images_to_plot):
         # High-resolution image
         axes[idx, 0].imshow(hr)
         axes[idx, 0].axis('off')
         axes[idx, 0].set_title(f'HR Image {idx + 1}')
 
         # Generated low-resolution image
-        axes[idx, 1].imshow(lr)
+        axes[idx, 1].imshow(lr_generated)
         axes[idx, 1].axis('off')
         axes[idx, 1].set_title(f'Generated LR Image {idx + 1}')
+
+        # Original low-resolution image
+        axes[idx, 2].imshow(lr_original)
+        axes[idx, 2].axis('off')
+        axes[idx, 2].set_title(f'Original LR Image {idx + 1}')
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.95)
