@@ -201,13 +201,13 @@ if __name__ == "__main__":
 
     # outpath = '/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets'
 
-    # with open(outpath + f'/glioma_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, np.array(hr_T1_list))
     #
-    # with open(outpath + f'/glioma_hr_T2_scale_by_{4}.npy', 'wb') as f:
+    # with open(outpath + f'/hr_T2_scale_by_{4}.npy', 'wb') as f:
     #     np.save(f, np.array(hr_T2_list))
 
-    # with open(outpath + f'/glioma_lr_T2_scale_by_{4}_small.npy', 'wb') as f:
+    # with open(outpath + f'/lr_T2_scale_by_{4}_small.npy', 'wb') as f:
     #     np.save(f, np.array(lr_T2_list))
 
     # print(np.array(hr_T1_list).shape, np.array(hr_T2_list).shape, np.array(lr_T2_list).shape)
@@ -225,49 +225,49 @@ if __name__ == "__main__":
     #                    scaling_factor=2,
     #                    transform=transforms)
 
-    # hr_T1 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/glioma_hr_T1_scale_by_4.npy', mmap_mode="r")
-    # hr_T2 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/glioma_hr_T2_scale_by_4.npy', mmap_mode="r")
-    lr_T2_2 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/glioma_lr_T2_scale_by_2_small.npy', mmap_mode="r")
-    lr_T2_4 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/glioma_lr_T2_scale_by_4_small.npy', mmap_mode="r")
+    # hr_T1 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/hr_T1_scale_by_4.npy', mmap_mode="r")
+    # hr_T2 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/hr_T2_scale_by_4.npy', mmap_mode="r")
+    lr_T2_2 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/lr_T2_scale_by_2_small.npy', mmap_mode="r")
+    lr_T2_4 = np.load('/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets/lr_T2_scale_by_4_small.npy', mmap_mode="r")
 
     outpath = '/home/cbtil/Documents/SRDIFF/guided-diffusion/datasets'
-    # with open(outpath + f'/glioma_training_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/training_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T1[:221])
     #
-    # with open(outpath + f'/glioma_valid_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/valid_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T1[221:251])
     #
-    # with open(outpath + f'/glioma_testing_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/testing_hr_T1_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T1[251:])
     #
     #
-    # with open(outpath + f'/glioma_training_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/training_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T2[:221])
     #
-    # with open(outpath + f'/glioma_valid_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/valid_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T2[221:251])
     #
-    # with open(outpath + f'/glioma_testing_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
+    # with open(outpath + f'/testing_hr_T2_scale_by_{4}_imgs.npy', 'wb') as f:
     #     np.save(f, hr_T2[251:])
     #
     #
-    with open(outpath + f'/glioma_training_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/training_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_4[:221])
 
-    with open(outpath + f'/glioma_valid_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/valid_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_4[221:251])
 
-    with open(outpath + f'/glioma_testing_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/testing_lr_T2_scale_by_{4}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_4[251:])
     #
     #
-    with open(outpath + f'/glioma_training_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/training_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_2[:221])
 
-    with open(outpath + f'/glioma_valid_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/valid_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_2[221:251])
 
-    with open(outpath + f'/glioma_testing_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
+    with open(outpath + f'/testing_lr_T2_scale_by_{2}_imgs_small.npy', 'wb') as f:
         np.save(f, lr_T2_2[251:])
     #
     #
