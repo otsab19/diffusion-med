@@ -1,4 +1,4 @@
-name: DisC-Diff
+name: diffusion-med
 channels:
   - pytorch
   - conda-forge
