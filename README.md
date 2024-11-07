@@ -1,15 +1,3 @@
-# DisC-Diff
-This repository is implemented based on [openai/guided-diffusion](https://github.com/openai/guided-diffusion), with modifications for loss functions and backbone network improvements.
-
-[**DisC-Diff: Disentangled Conditional Diffusion Model for Multi-Contrast MRI Super-Resolution**](https://arxiv.org/abs/2303.13933)<br/>
-[Ye Mao](https://yebulabula.github.io/)\*,
-Lan Jiang \*,
-Xi Chen \,
-Chao Li,
-<br/>
-
-DisC-Diff is multi-contrast brain MRI super-resolution method designed based on denoising diffusion probabilistic models. Specifically, DisC-Diff leverages a disentangled multi-stream network to exploit complementary information from multi-contrast MRI, improving model interpretation under multiple conditions of multi-contrast inputs. We validated the effectiveness of DisC-Diff on two datasets: the IXI dataset, which contains 578 normal brains, and a clinical dataset with 316 pathological brains.
-![Model Architecture](asset/model_architecture.png)
 
 ## Dependencies
 A [conda](https://conda.io/) environment named `DisC-Diff` can be created
@@ -34,17 +22,4 @@ conda activate DisC-Diff
 2. In test_job.sh, replace the second line into `export PYTHONPATH= "Your Repository Path"`.
 3. Run `bash test_job.sh`.
 
-## Sample Results
-![sample](asset/result.png)
 
-
-## BibTeX
-
-```
-@article{mao2023disc,
-  title={DisC-Diff: Disentangled Conditional Diffusion Model for Multi-Contrast MRI Super-Resolution},
-  author={Mao, Ye and Jiang, Lan and Chen, Xi and Li, Chao},
-  journal={arXiv preprint arXiv:2303.13933},
-  year={2023}
-}
-```
